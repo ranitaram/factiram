@@ -1,0 +1,158 @@
+// ===============================
+// GENERATOR & DATASOURCE
+// ===============================
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Ya no ponemos url ni directUrl aquí
+}
+
+// ... El resto de tus modelos (User, Audit, etc.) se quedan igual
+// ===============================
+// ENUMS
+// ===============================
+
+enum IndustryType {
+  COMIDA
+  SERVICIO
+  RETAIL
+  TECNICO
+}
+
+enum AuditStatus {
+  PROYECTO
+  EN_MARCHA
+}
+
+enum TaxStatus {
+  INFORMAL
+  RESICO
+  PERSONA_FISICA
+  PERSONA_MORAL
+}
+
+enum DiagnosticCategory {
+  RENTABILIDAD
+  RIESGO
+  MERCADO
+  OPERACION
+}
+
+enum MessageColor {
+  RED
+  YELLOW
+  GREEN
+}
+
+// ===============================
+// USER MODEL (SaaS Ready)
+// ===============================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audits    Audit[]
+
+  @@index([email])
+}
+
+// ===============================
+// AUDIT MODEL (Core Engine)
+// ===============================
+
+model Audit {
+  id                String       @id @default(uuid())
+  industry          IndustryType
+  status            AuditStatus  @default(PROYECTO)
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // -------------------------------
+  // BLOQUE 1: FINANZAS
+  // -------------------------------
+
+  ticketAvg         Decimal      @db.Decimal(12, 2)
+  costDirectPercent Decimal      @db.Decimal(5, 2)
+  fixedCosts        Decimal      @db.Decimal(12, 2)
+  desiredSalary     Decimal      @db.Decimal(12, 2)
+  marketingSpend    Decimal      @db.Decimal(12, 2) @default(0) // Necesario para calcular CAC
+  emergencyFund     Int
+  operatingDays     Int
+
+  // -------------------------------
+  // BLOQUE 2: MERCADO
+  // -------------------------------
+
+  visibilityScore   Int
+  competitionScore  Int
+  differentiation   Int
+
+  // -------------------------------
+  // BLOQUE 3: CAPACIDAD
+  // -------------------------------
+
+  capacityPerDay    Int
+  taxStatus         TaxStatus
+  digitalScore      Int
+
+  // -------------------------------
+  // RESULTADOS CACHEADOS
+  // -------------------------------
+
+  finalScore        Int?
+  breakEvenPoint    Decimal?     @db.Decimal(12, 2)
+  ltvCacRatio       Decimal?     @db.Decimal(12, 2)
+  netProfit         Decimal?     @db.Decimal(12, 2)
+  
+  // Persistencia del diagnóstico generado (IDs o textos de mensajes)
+  fullDiagnosis     Json?        
+
+  // -------------------------------
+  // RELACIÓN CON USUARIO
+  // -------------------------------
+
+  // Opcional para permitir uso anónimo y registro posterior
+  userId            String?
+  user              User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([industry])
+  @@index([status])
+  @@index([userId])
+}
+
+// ===============================
+// DIAGNOSTIC MESSAGES ENGINE
+// ===============================
+
+model DiagnosticMessage {
+  id            Int                @id @default(autoincrement())
+
+  category      DiagnosticCategory
+  industry      IndustryType?
+  status        AuditStatus?
+
+  minScore      Int
+  maxScore      Int
+
+  conditionKey  String?
+  message       String             @db.Text
+  color         MessageColor
+
+  createdAt     DateTime           @default(now())
+
+  @@index([category])
+  @@index([industry])
+  @@index([status])
+}
