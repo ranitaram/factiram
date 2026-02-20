@@ -6,13 +6,15 @@
 
 generator client {
   provider = "prisma-client-js"
+  
+  
 }
 
 datasource db {
-  provider = "postgresql"
-  // Ya no ponemos url ni directUrl aquí
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // <-- ESTA LÍNEA ES LA QUE FALTA
+  directUrl = env("DIRECT_URL")    // <-- NECESARIA PARA NEON
 }
-
 // ... El resto de tus modelos (User, Audit, etc.) se quedan igual
 // ===============================
 // ENUMS
