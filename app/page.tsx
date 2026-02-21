@@ -1,3 +1,5 @@
+import Link from "next/link"; // Importante para la navegación
+
 export default function Home() {
   return (
     <div className="flex flex-col items-center">
@@ -15,7 +17,7 @@ export default function Home() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full max-w-5xl">
         {/* Tarjeta Idea */}
-        <button className="group p-10 bg-white border border-slate-200 rounded-[2rem] shadow-xl shadow-slate-200/50 hover:border-emerald-pro hover:-translate-y-2 transition-all duration-300 text-left">
+        <Link href="/audit" className="group p-10 bg-white border border-slate-200 rounded-[2rem] shadow-xl shadow-slate-200/50 hover:border-emerald-pro hover:-translate-y-2 transition-all duration-300 text-left">
           <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-emerald-50 transition-colors">
             <span className="text-4xl">💡</span>
           </div>
@@ -26,10 +28,10 @@ export default function Home() {
           <span className="text-emerald-pro font-black text-lg flex items-center gap-2">
             COMENZAR VALIDACIÓN →
           </span>
-        </button>
+        </Link>
 
         {/* Tarjeta Negocio */}
-        <button className="group p-10 bg-midnight border border-midnight rounded-[2rem] shadow-2xl shadow-midnight/20 hover:-translate-y-2 transition-all duration-300 text-left">
+        <Link href="/audit" className="group p-10 bg-midnight border border-midnight rounded-4xl shadow-2xl shadow-midnight/20 hover:-translate-y-2 transition-all duration-300 text-left">
           <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-emerald-pro/20 transition-colors">
             <span className="text-4xl">🚀</span>
           </div>
@@ -40,7 +42,7 @@ export default function Home() {
           <span className="text-emerald-pro font-black text-lg flex items-center gap-2">
             INICIAR AUDITORÍA →
           </span>
-        </button>
+        </Link>
       </div>
     </div>
   );
