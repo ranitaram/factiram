@@ -5,7 +5,7 @@ import { z } from "zod";
 /* =========================================================
    1. CONFIGURACIÓN Y VERSIONAMIENTO
 ========================================================= */
-export const MODEL_VERSION = "1.0.0";
+export const MODEL_VERSION = "1.1.0"; // Incrementamos versión por el Factor de Optimismo
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
 /* =========================================================
@@ -16,10 +16,10 @@ const AuditInputSchema = z.object({
   status: z.nativeEnum(AuditStatus),
   ticketAvg: z.number().positive(),
   costDirectPercent: z.number().min(0).max(100),
-  fixedCosts: z.number().min(0),
-  desiredSalary: z.number().min(0),
-  marketingSpend: z.number().min(0),
-  emergencyFund: z.number().min(0),
+  fixedCosts: z.number().min(0),       // Mensual
+  desiredSalary: z.number().min(0),    // Mensual
+  marketingSpend: z.number().min(0),   // Mensual
+  emergencyFund: z.number().min(0).default(0), // No afecta fórmulas por ahora
   operatingDays: z.number().int().min(1).max(31),
   visibilityScore: z.number().int().min(1).max(10),
   competitionScore: z.number().int().min(1).max(10),
@@ -43,9 +43,14 @@ function calculateFinancials(data: AuditInputs) {
   const capacity = new Decimal(data.capacityPerDay);
   const days = new Decimal(data.operatingDays);
 
+  // --- APLICACIÓN DEL FACTOR DE OPTIMISMO ---
+  // Si es proyecto, castigamos el volumen con un 20% (Factor 0.8)
+  const optimismFactor = data.status === AuditStatus.PROYECTO 
+    ? new Decimal(0.8) 
+    : new Decimal(1.0);
+
   const marginPerUnit = ticket.mul(new Decimal(1).sub(costPct));
 
-  // Camino A: Margen No Viable (Negativo o Cero)
   if (marginPerUnit.lte(0)) {
     return {
       isViable: false,
@@ -56,12 +61,13 @@ function calculateFinancials(data: AuditInputs) {
       cacProxy: new Decimal(0),
       salary,
       marketing,
-      capacity, // <-- Corregido: Ahora siempre se devuelve
+      capacity,
     };
   }
 
-  // Camino B: Margen Viable
-  const monthlyVolume = capacity.mul(days);
+  // El volumen mensual ahora considera el Factor de Optimismo
+  const monthlyVolume = capacity.mul(days).mul(optimismFactor);
+  
   const netProfit = marginPerUnit.mul(monthlyVolume).sub(fixed);
   const breakEvenUnits = fixed.div(marginPerUnit);
   const breakEvenMoney = breakEvenUnits.mul(ticket);
@@ -118,7 +124,6 @@ function calculateScores(data: AuditInputs, financials: ReturnType<typeof calcul
 function generateConditions(data: AuditInputs, financials: ReturnType<typeof calculateFinancials>) {
   const conditions: string[] = [];
 
-  // Ahora financials.capacity siempre existe para TypeScript
   if (financials.capacity.eq(0)) {
     conditions.push("ZERO_CAPACITY");
   }
