@@ -61,7 +61,7 @@ const ProgressBar = ({ label, score }: { label: string, score: number }) => (
 // ==========================================
 // ESTRUCTURA DEL DOCUMENTO
 // ==========================================
-export const PdfReport = ({ formData, result, userName }: any) => {
+export const PdfReport = ({ formData, result, userName, messages }: any) => {
   // Cálculos de alto impacto para el reporte:
   const maxRevenue = formData.capacityPerDay * formData.ticketAvg * formData.operatingDays;
   const currentRevenue = maxRevenue * (formData.occupancy / 100);
@@ -146,29 +146,45 @@ export const PdfReport = ({ formData, result, userName }: any) => {
         </View>
 
         {/* 3. PLAN DE ACCIÓN (Semillas base) */}
+       {/* 3. PLAN DE ACCIÓN (Dinámico desde la Base de Datos) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Plan de Acción Recomendado</Text>
           
-          <View style={styles.bulletRow}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.bulletText}>
-              <Text style={{ fontWeight: 'bold' }}>Costos Operativos:</Text> Tus costos de materiales están al {formData.costDirectPercent}%. Es vital auditar a tus proveedores o ajustar precios para no erosionar tus ganancias.
-            </Text>
-          </View>
+          {messages && messages.length > 0 ? (
+            // Ordenamos los mensajes para que los ROJOS salgan primero
+            messages
+              .sort((a: any, b: any) => {
+                const weights: any = { RED: 1, YELLOW: 2, GREEN: 3 };
+                return weights[a.color] - weights[b.color];
+              })
+              // Tomamos máximo los 5 mensajes más críticos para no desbordar la hoja
+              .slice(0, 5)
+              .map((msg: any, index: number) => {
+                // Truco Pro: Separamos el título del texto por los "Dos Puntos (:)" para ponerlo en negritas
+                const parts = msg.message.split(':');
+                const title = parts[0];
+                const body = parts.length > 1 ? parts.slice(1).join(':') : '';
 
-          <View style={styles.bulletRow}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.bulletText}>
-              <Text style={{ fontWeight: 'bold' }}>Expansión de Mercado:</Text> Actualmente estás dejando de ganar ${moneyLeftOnTable.toLocaleString()} al mes por capacidad ociosa. Debes invertir urgentemente tus ${formData.marketingSpend.toLocaleString()} de publicidad en estrategias de adquisición directa.
-            </Text>
-          </View>
-
-          <View style={styles.bulletRow}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.bulletText}>
-              <Text style={{ fontWeight: 'bold' }}>Blindaje Financiero:</Text> Tienes un Sueldo Ideal de ${formData.desiredSalary.toLocaleString()}. Para garantizarlo sin ahogar el negocio, tu meta de ventas mensuales debe superar siempre tu Punto de Equilibrio de ${result.breakEvenPoint?.toLocaleString()}.
-            </Text>
-          </View>
+                return (
+                  <View key={index} style={styles.bulletRow}>
+                    <Text style={[styles.bullet, { 
+                      color: msg.color === 'RED' ? '#ef4444' : msg.color === 'YELLOW' ? '#d97706' : '#10b981' 
+                    }]}>•</Text>
+                    <Text style={styles.bulletText}>
+                      {body ? (
+                        <>
+                          <Text style={{ fontWeight: 'bold' }}>{title}:</Text>{body}
+                        </>
+                      ) : (
+                        msg.message
+                      )}
+                    </Text>
+                  </View>
+                );
+              })
+          ) : (
+            <Text style={styles.bulletText}>Calculando plan de acción estratégico...</Text>
+          )}
         </View>
 
         {/* 4. NOTA AL PIE */}

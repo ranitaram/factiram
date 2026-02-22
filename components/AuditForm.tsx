@@ -79,6 +79,7 @@ export default function AuditForm() {
   const [step, setStep] = useState(1);
   const [result, setResult] = useState<AuditResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [diagnosticMessages, setDiagnosticMessages] = useState<any[]>([]);
 
   const [formData, setFormData] = useState<AuditInputs & { occupancy: number }>({
     industry: IndustryType.COMIDA,
@@ -104,6 +105,31 @@ export default function AuditForm() {
 
   // Persistencia y Scroll
   // Auto-scroll al cambiar paso o mostrar resultado
+// Buscar los mensajes de diagnóstico dinámicos en la BD
+  useEffect(() => {
+    if (result && formData) {
+      const fetchMessages = async () => {
+        try {
+          const res = await fetch("/api/get-messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              score: result.finalScore,
+              conditions: result.triggeredConditions,
+              industry: formData.industry,
+              status: formData.status
+            })
+          });
+          const data = await res.json();
+          setDiagnosticMessages(data.messages || []);
+        } catch (err) {
+          console.error("Error obteniendo textos de diagnóstico:", err);
+        }
+      };
+      fetchMessages();
+    }
+  }, [result, formData]);
+
   useEffect(() => { 
     window.scrollTo({ top: 0, behavior: "smooth" }); 
   }, [step, result]);
@@ -171,7 +197,7 @@ export default function AuditForm() {
       // 2. Construir y Descargar el Archivo PDF
       // Le pasamos los datos del formulario, los resultados y el nombre del usuario logueado
       const blob = await pdf(
-        <PdfReport formData={formData} result={result} userName={session?.user?.name} />
+        <PdfReport formData={formData} result={result} userName={session?.user?.name} messages={diagnosticMessages}/>
       ).toBlob();
 
       // Creamos un link invisible en el navegador para forzar la descarga
