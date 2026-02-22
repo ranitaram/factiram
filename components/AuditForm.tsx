@@ -1,5 +1,7 @@
 "use client";
 
+import { pdf } from '@react-pdf/renderer';
+import { PdfReport } from './PdfReport';
 import { signIn, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -151,29 +153,45 @@ export default function AuditForm() {
   };
 
   /* --- BUG FIXED: Esta función solo se llama desde el botón naranja/verde final --- */
+ const [isGenerating, setIsGenerating] = useState(false); // Para evitar dobles clics
+
   const handleDownloadPDF = async () => {
-    alert(`Preparando descarga para ${session?.user?.name || 'usuario'}...`);
+    setIsGenerating(true);
     
-    // Si está logueado, guardamos los datos en la base de datos de Neon silenciosamente
-    if (status === "authenticated" && result) {
-      try {
-        const response = await fetch("/api/save-audit", {
+    try {
+      // 1. Guardar en Base de Datos (Lo que hicimos antes)
+      if (status === "authenticated" && result) {
+        await fetch("/api/save-audit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ formData, result })
         });
-        
-        if (response.ok) {
-          console.log("¡Auditoría guardada en Neon con éxito!");
-        } else {
-          console.error("Error desde el servidor al intentar guardar.");
-        }
-      } catch (err) {
-        console.error("Error de conexión al guardar en BD:", err);
       }
-    }
 
-    // Aquí pondremos el código real para generar el PDF en el siguiente paso
+      // 2. Construir y Descargar el Archivo PDF
+      // Le pasamos los datos del formulario, los resultados y el nombre del usuario logueado
+      const blob = await pdf(
+        <PdfReport formData={formData} result={result} userName={session?.user?.name} />
+      ).toBlob();
+
+      // Creamos un link invisible en el navegador para forzar la descarga
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Diagnostico_FACTIRAM_${new Date().getTime()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiamos la memoria
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error("Error al generar PDF:", err);
+      alert("Hubo un error al generar tu reporte. Intenta de nuevo.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleGenerate = () => {
@@ -215,9 +233,13 @@ export default function AuditForm() {
           <h3 className="text-3xl font-black uppercase italic">¡Reporte Completo Gratis!</h3>
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             {status === "authenticated" ? (
-              <button onClick={handleDownloadPDF} className="bg-white text-emerald-600 px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg cursor-pointer">
-                Descargar Reporte PDF
-              </button>
+             <button 
+              onClick={handleDownloadPDF} 
+              disabled={isGenerating}
+                className={`bg-white text-emerald-600 px-10 py-5 rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg ${isGenerating ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                >
+                {isGenerating ? "Generando PDF..." : "Descargar Reporte PDF"}
+            </button>
             ) : (
               <button onClick={() => {sessionStorage.setItem("factiram_return", "true");signIn("google");}} className="bg-white text-emerald-600 px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2">
                 <img src="https://authjs.dev/img/providers/google.svg" className="w-4 h-4" alt="Google" />
