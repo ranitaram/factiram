@@ -159,6 +159,17 @@ export default function AuditForm() {
     }
   }, []);
 
+  // GUARDADO AUTOMÁTICO EN TIEMPO REAL
+  // Cada vez que formData o step cambian, lo guardamos en el navegador
+  useEffect(() => {
+    // No guardamos si está en el paso final o está vacío para evitar bugs raros
+    if (step < 4) {
+      localStorage.setItem("factiram_draft", JSON.stringify(formData));
+      // Opcional: También guardamos el paso en el que se quedó
+      localStorage.setItem("factiram_step", step.toString());
+    }
+  }, [formData, step]);
+
   const updateField = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors.includes(field)) setErrors(errors.filter(e => e !== field));

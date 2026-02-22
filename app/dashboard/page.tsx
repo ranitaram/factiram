@@ -38,6 +38,8 @@ export default async function DashboardPage() {
     marketingSpend: Number(audit.marketingSpend),
     emergencyFund: Number(audit.emergencyFund),
     netProfit: Number(audit.netProfit),
+    ltvCacRatio: audit.ltvCacRatio ? Number(audit.ltvCacRatio) : null,
+    breakEvenPoint: audit.breakEvenPoint ? Number(audit.breakEvenPoint) : null,
   }));
 
   return (

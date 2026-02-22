@@ -15,21 +15,21 @@ Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
    2. ESQUEMA DE VALIDACIÓN (ZOD)
 ========================================================= */
 const AuditInputSchema = z.object({
-  industry: z.nativeEnum(IndustryType),
-  status: z.nativeEnum(AuditStatus),
-  ticketAvg: z.number().positive(),
+  industry: z.enum(IndustryType),
+  status: z.enum(AuditStatus),
+  ticketAvg: z.number().positive().max(9999999),
   costDirectPercent: z.number().min(0), 
-  fixedCosts: z.number().min(0),
-  desiredSalary: z.number().min(0),
-  marketingSpend: z.number().min(0),
+  fixedCosts: z.number().min(0).max(9999999),
+  desiredSalary: z.number().min(0).max(9999999),
+  marketingSpend: z.number().min(0).max(9999999),
   emergencyFund: z.number().min(0).default(0),
   operatingDays: z.number().int().min(1).max(31),
   visibilityScore: z.number().int().min(1).max(10),
   competitionScore: z.number().int().min(1).max(10),
   differentiation: z.number().int().min(1).max(10),
-  capacityPerDay: z.number().min(0),
+  capacityPerDay: z.number().min(0).max(9999999),
   occupancy: z.number().min(5).max(100).default(50),
-  taxStatus: z.nativeEnum(TaxStatus),
+  taxStatus: z.enum(TaxStatus),
   digitalScore: z.number().int().min(1).max(10),
 });
 
