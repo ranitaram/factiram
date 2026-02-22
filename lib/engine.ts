@@ -8,7 +8,7 @@ export { IndustryType, AuditStatus, TaxStatus };
 /* =========================================================
    1. CONFIGURACIÓN Y VERSIONAMIENTO
 ========================================================= */
-export const MODEL_VERSION = "1.2.1"; 
+export const MODEL_VERSION = "1.3.0"; // Subimos versión por los nuevos Triggers
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
 /* =========================================================
@@ -18,7 +18,6 @@ const AuditInputSchema = z.object({
   industry: z.nativeEnum(IndustryType),
   status: z.nativeEnum(AuditStatus),
   ticketAvg: z.number().positive(),
-  // Eliminamos el .max(100) para evitar que la app se "atore" por errores de Zod
   costDirectPercent: z.number().min(0), 
   fixedCosts: z.number().min(0),
   desiredSalary: z.number().min(0),
@@ -59,7 +58,6 @@ function calculateFinancials(data: AuditInputs) {
 
   // Si el margen es negativo, el negocio pierde dinero con cada venta
   if (marginPerUnit.lte(0)) {
-    // Calculamos la pérdida neta basada en el volumen proyectado incluso si el margen es negativo
     const monthlyVolume = capacity.mul(days).mul(optimismFactor).mul(occupancy);
     const netLoss = marginPerUnit.mul(monthlyVolume).sub(fixed);
 
@@ -103,7 +101,6 @@ function calculateFinancials(data: AuditInputs) {
    4. MODELO DE PUNTUACIÓN (SCORING)
 ========================================================= */
 function calculateScores(data: AuditInputs, financials: ReturnType<typeof calculateFinancials>) {
-  // Si el margen es negativo o el beneficio neto es negativo, el score financiero es 0
   let financeScore = 0;
   if (financials.netProfit.gt(0) && financials.salary.gt(0)) {
     if (financials.netProfit.gte(financials.salary)) {
@@ -127,15 +124,36 @@ function calculateScores(data: AuditInputs, financials: ReturnType<typeof calcul
 }
 
 /* =========================================================
-   5. GENERADOR DE CONDICIONES (TRIGGERS)
+   5. GENERADOR DE CONDICIONES (TRIGGERS INTELIGENTES)
 ========================================================= */
 function generateConditions(data: AuditInputs, financials: ReturnType<typeof calculateFinancials>) {
   const conditions: string[] = [];
+  
+  // Capacidad máxima de ingresos mensuales si estuviera al 100%
+  const maxRevenue = data.ticketAvg * data.capacityPerDay * data.operatingDays;
 
+  // --- TRIGGERS NUEVOS (Basados en la Semilla Maestra) ---
+  
+  if (financials.netProfit.lt(0)) conditions.push("NEGATIVE_PROFIT");
+  
+  // Si el punto de equilibrio es mayor al 70% de las ventas máximas posibles
+  if (financials.breakEvenMoney.toNumber() > (maxRevenue * 0.7)) conditions.push("HIGH_FIXED_COSTS");
+  
+  if (data.occupancy < 50) conditions.push("LOW_OCCUPANCY");
+  
+  if (data.digitalScore < 5) conditions.push("POOR_DIGITAL_PRESENCE");
+  
+  // "Lleno pero pobre": Ocupación > 75% pero ganancia menor a la mitad de su sueldo ideal
+  if (data.occupancy >= 75 && financials.netProfit.toNumber() < (data.desiredSalary * 0.5)) {
+    conditions.push("BUSY_BUT_BROKE");
+  }
+
+  // --- TRIGGERS EXISTENTES ---
   if (financials.capacity.eq(0)) conditions.push("ZERO_CAPACITY");
   if (financials.marginPerUnit.lte(0)) conditions.push("NEGATIVE_MARGIN");
   if (new Decimal(data.costDirectPercent).gt(60)) conditions.push("HIGH_COSTS");
-  if (financials.netProfit.lt(financials.salary)) conditions.push("LOW_PROFITABILITY");
+  
+  if (financials.netProfit.gt(0) && financials.netProfit.lt(financials.salary)) conditions.push("LOW_PROFITABILITY");
   if (data.differentiation < 4) conditions.push("COMMODITY_RISK");
   if (financials.marketing.eq(0) && data.status === "EN_MARCHA") conditions.push("NO_MARKETING");
   
@@ -164,10 +182,10 @@ export function calculateAuditResults(rawData: unknown) {
       ltvCacRatio: financials.cacProxy.gt(0)
           ? financials.ltvProxy.div(financials.cacProxy).toDecimalPlaces(2).toNumber()
           : null,
-      triggeredConditions: conditions,
+      triggeredConditions: conditions, // ¡Aquí viajan las llaves hacia el frontend!
     };
   } catch (error) {
     console.error("Critical Engine Error:", error);
-    throw error; // Re-lanzamos para que AuditForm lo atrape en su try/catch
+    throw error;
   }
 }
