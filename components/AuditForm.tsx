@@ -101,12 +101,35 @@ export default function AuditForm() {
   const isIdea = formData.status === AuditStatus.PROYECTO;
 
   // Persistencia y Scroll
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step, result]);
+  // Auto-scroll al cambiar paso o mostrar resultado
+  useEffect(() => { 
+    window.scrollTo({ top: 0, behavior: "smooth" }); 
+  }, [step, result]);
+
+  // Persistencia y Recuperación tras Login de Google
   useEffect(() => {
     const saved = localStorage.getItem("factiram_draft");
-    if (saved) setFormData(JSON.parse(saved));
+    if (saved) {
+      const parsedData = JSON.parse(saved);
+      setFormData(parsedData);
+
+      // Revisamos si venimos de regreso de Google
+      const pendingReturn = sessionStorage.getItem("factiram_return");
+      if (pendingReturn) {
+        try {
+          // Re-calculamos el resultado con los datos guardados
+          const calculatedResult = calculateAuditResults(parsedData);
+          setResult(calculatedResult);
+          // Forzamos que la vista se vaya directo al paso 4
+          setStep(4);
+        } catch (err) {
+          console.error(err);
+        }
+        // Borramos la nota para que no se quede trabado en el futuro
+        sessionStorage.removeItem("factiram_return");
+      }
+    }
   }, []);
-  useEffect(() => { localStorage.setItem("factiram_draft", JSON.stringify(formData)); }, [formData]);
 
   const updateField = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -128,8 +151,29 @@ export default function AuditForm() {
   };
 
   /* --- BUG FIXED: Esta función solo se llama desde el botón naranja/verde final --- */
-  const handleDownloadPDF = () => {
-    alert(`Hola ${session?.user?.name}, tu PDF se está generando...`);
+  const handleDownloadPDF = async () => {
+    alert(`Preparando descarga para ${session?.user?.name || 'usuario'}...`);
+    
+    // Si está logueado, guardamos los datos en la base de datos de Neon silenciosamente
+    if (status === "authenticated" && result) {
+      try {
+        const response = await fetch("/api/save-audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ formData, result })
+        });
+        
+        if (response.ok) {
+          console.log("¡Auditoría guardada en Neon con éxito!");
+        } else {
+          console.error("Error desde el servidor al intentar guardar.");
+        }
+      } catch (err) {
+        console.error("Error de conexión al guardar en BD:", err);
+      }
+    }
+
+    // Aquí pondremos el código real para generar el PDF en el siguiente paso
   };
 
   const handleGenerate = () => {
@@ -175,7 +219,7 @@ export default function AuditForm() {
                 Descargar Reporte PDF
               </button>
             ) : (
-              <button onClick={() => signIn("google")} className="bg-white text-emerald-600 px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2">
+              <button onClick={() => {sessionStorage.setItem("factiram_return", "true");signIn("google");}} className="bg-white text-emerald-600 px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2">
                 <img src="https://authjs.dev/img/providers/google.svg" className="w-4 h-4" alt="Google" />
                 Registrarme y Bajar Reporte
               </button>
