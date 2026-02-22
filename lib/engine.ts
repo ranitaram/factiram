@@ -8,7 +8,7 @@ export { IndustryType, AuditStatus, TaxStatus };
 /* =========================================================
    1. CONFIGURACIÓN Y VERSIONAMIENTO
 ========================================================= */
-export const MODEL_VERSION = "1.2.0"; // Incrementamos por la integración de Ocupación
+export const MODEL_VERSION = "1.2.1"; 
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
 /* =========================================================
@@ -18,7 +18,8 @@ const AuditInputSchema = z.object({
   industry: z.nativeEnum(IndustryType),
   status: z.nativeEnum(AuditStatus),
   ticketAvg: z.number().positive(),
-  costDirectPercent: z.number().min(0).max(100),
+  // Eliminamos el .max(100) para evitar que la app se "atore" por errores de Zod
+  costDirectPercent: z.number().min(0), 
   fixedCosts: z.number().min(0),
   desiredSalary: z.number().min(0),
   marketingSpend: z.number().min(0),
@@ -28,7 +29,7 @@ const AuditInputSchema = z.object({
   competitionScore: z.number().int().min(1).max(10),
   differentiation: z.number().int().min(1).max(10),
   capacityPerDay: z.number().min(0),
-  occupancy: z.number().min(5).max(100).default(50), // <-- NUEVO: Factor de Ocupación Real
+  occupancy: z.number().min(5).max(100).default(50),
   taxStatus: z.nativeEnum(TaxStatus),
   digitalScore: z.number().int().min(1).max(10),
 });
@@ -47,22 +48,26 @@ function calculateFinancials(data: AuditInputs) {
   const capacity = new Decimal(data.capacityPerDay);
   const days = new Decimal(data.operatingDays);
   
-  // Transformamos el % de ocupación a decimal (ej: 50 -> 0.5)
   const occupancy = new Decimal(data.occupancy).div(100);
 
-  // --- FACTOR DE OPTIMISMO (Para Proyectos) ---
   const optimismFactor = data.status === AuditStatus.PROYECTO 
     ? new Decimal(0.8) 
     : new Decimal(1.0);
 
+  // Margen unitario (Puede ser negativo si costPct > 100%)
   const marginPerUnit = ticket.mul(new Decimal(1).sub(costPct));
 
+  // Si el margen es negativo, el negocio pierde dinero con cada venta
   if (marginPerUnit.lte(0)) {
+    // Calculamos la pérdida neta basada en el volumen proyectado incluso si el margen es negativo
+    const monthlyVolume = capacity.mul(days).mul(optimismFactor).mul(occupancy);
+    const netLoss = marginPerUnit.mul(monthlyVolume).sub(fixed);
+
     return {
       isViable: false,
       marginPerUnit,
       breakEvenMoney: new Decimal(0),
-      netProfit: new Decimal(0),
+      netProfit: netLoss,
       ltvProxy: new Decimal(0),
       cacProxy: new Decimal(0),
       salary,
@@ -71,14 +76,8 @@ function calculateFinancials(data: AuditInputs) {
     };
   }
 
-  // --- CÁLCULO DE VOLUMEN REAL ---
-  // Volumen = (Capacidad Diaria * Días * Factor Proyecto) * % de Ocupación Real
   const monthlyVolume = capacity.mul(days).mul(optimismFactor).mul(occupancy);
-  
-  // Utilidad = (Margen * Volumen Real) - Gastos Fijos
   const netProfit = marginPerUnit.mul(monthlyVolume).sub(fixed);
-  
-  // Punto de equilibrio (Ventas mínimas para no perder)
   const breakEvenUnits = fixed.div(marginPerUnit);
   const breakEvenMoney = breakEvenUnits.mul(ticket);
 
@@ -104,20 +103,18 @@ function calculateFinancials(data: AuditInputs) {
    4. MODELO DE PUNTUACIÓN (SCORING)
 ========================================================= */
 function calculateScores(data: AuditInputs, financials: ReturnType<typeof calculateFinancials>) {
-  if (!financials.isViable) {
-    return { financeScore: 0, marketScore: 0, digitalScore: 0, finalScore: 0 };
-  }
-
+  // Si el margen es negativo o el beneficio neto es negativo, el score financiero es 0
   let financeScore = 0;
-  // El score financiero ahora será mucho más realista al basarse en el volumen real/ocupación
-  if (financials.netProfit.gte(financials.salary)) {
-    financeScore = 40;
-  } else if (financials.netProfit.gt(0) && financials.salary.gt(0)) {
-    financeScore = financials.netProfit
-      .div(financials.salary)
-      .mul(40)
-      .toDecimalPlaces(2)
-      .toNumber();
+  if (financials.netProfit.gt(0) && financials.salary.gt(0)) {
+    if (financials.netProfit.gte(financials.salary)) {
+      financeScore = 40;
+    } else {
+      financeScore = financials.netProfit
+        .div(financials.salary)
+        .mul(40)
+        .toDecimalPlaces(2)
+        .toNumber();
+    }
   }
 
   const marketBase = (data.visibilityScore + (11 - data.competitionScore) + (data.differentiation * 2)) / 4;
@@ -135,15 +132,8 @@ function calculateScores(data: AuditInputs, financials: ReturnType<typeof calcul
 function generateConditions(data: AuditInputs, financials: ReturnType<typeof calculateFinancials>) {
   const conditions: string[] = [];
 
-  if (financials.capacity.eq(0)) {
-    conditions.push("ZERO_CAPACITY");
-  }
-
-  if (!financials.isViable) {
-    conditions.push("NEGATIVE_MARGIN");
-    return conditions;
-  }
-
+  if (financials.capacity.eq(0)) conditions.push("ZERO_CAPACITY");
+  if (financials.marginPerUnit.lte(0)) conditions.push("NEGATIVE_MARGIN");
   if (new Decimal(data.costDirectPercent).gt(60)) conditions.push("HIGH_COSTS");
   if (financials.netProfit.lt(financials.salary)) conditions.push("LOW_PROFITABILITY");
   if (data.differentiation < 4) conditions.push("COMMODITY_RISK");
@@ -160,22 +150,24 @@ function generateConditions(data: AuditInputs, financials: ReturnType<typeof cal
    6. ORQUESTADOR (EXPORTADO)
 ========================================================= */
 export function calculateAuditResults(rawData: unknown) {
-  const data = AuditInputSchema.parse(rawData);
+  try {
+    const data = AuditInputSchema.parse(rawData);
+    const financials = calculateFinancials(data);
+    const scores = calculateScores(data, financials);
+    const conditions = generateConditions(data, financials);
 
-  const financials = calculateFinancials(data);
-  const scores = calculateScores(data, financials);
-  const conditions = generateConditions(data, financials);
-
-  return {
-    modelVersion: MODEL_VERSION,
-    finalScore: scores.finalScore,
-    breakEvenPoint: financials.breakEvenMoney.toDecimalPlaces(2).toNumber(),
-    netProfit: financials.netProfit.toDecimalPlaces(2).toNumber(),
-    
-    ltvCacRatio: financials.cacProxy.gt(0)
-        ? financials.ltvProxy.div(financials.cacProxy).toDecimalPlaces(2).toNumber()
-        : null,
-
-    triggeredConditions: conditions,
-  };
+    return {
+      modelVersion: MODEL_VERSION,
+      finalScore: scores.finalScore,
+      breakEvenPoint: financials.breakEvenMoney.toDecimalPlaces(2).toNumber(),
+      netProfit: financials.netProfit.toDecimalPlaces(2).toNumber(),
+      ltvCacRatio: financials.cacProxy.gt(0)
+          ? financials.ltvProxy.div(financials.cacProxy).toDecimalPlaces(2).toNumber()
+          : null,
+      triggeredConditions: conditions,
+    };
+  } catch (error) {
+    console.error("Critical Engine Error:", error);
+    throw error; // Re-lanzamos para que AuditForm lo atrape en su try/catch
+  }
 }
