@@ -4,15 +4,35 @@ import { useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { PdfReport } from "./PdfReport";
 import { calculateAuditResults } from "@/lib/engine";
-import { FileDown, Calendar } from "lucide-react";
+import { FileDown, Calendar, Trash2, Loader2, Target } from "lucide-react";
 
-export default function DashboardClient({ audits, userName }: { audits: any[], userName: string | null }) {
+export default function DashboardClient({ audits: initialAudits, userName }: { audits: any[], userName: string | null }) {
+  const [audits, setAudits] = useState(initialAudits);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    const confirmed = window.confirm("¿Estás seguro de que deseas eliminar este diagnóstico? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+
+    setIsDeleting(id);
+    try {
+      const res = await fetch(`/api/audits/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setAudits((prev) => prev.filter((audit) => audit.id !== id));
+      } else {
+        alert("No se pudo eliminar el registro.");
+      }
+    } catch (error) {
+      alert("Error de conexión al eliminar.");
+    } finally {
+      setIsDeleting(null);
+    }
+  };
 
   const handleReDownload = async (audit: any) => {
     setIsGenerating(audit.id);
     try {
-      // 1. Reconstruimos los datos del formulario tal como los pide el motor
       const formData = {
         industry: audit.industry,
         status: audit.status,
@@ -32,10 +52,7 @@ export default function DashboardClient({ audits, userName }: { audits: any[], u
         taxStatus: audit.taxStatus,
       };
 
-      // 2. Pasamos los datos por tu motor para recrear los triggers y resultados exactos
       const result = calculateAuditResults(formData);
-
-      // 3. Vamos a buscar los mensajes correctos a la BD
       const res = await fetch("/api/get-messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,7 +66,6 @@ export default function DashboardClient({ audits, userName }: { audits: any[], u
       const data = await res.json();
       const messages = data.messages || [];
 
-      // 4. Dibujamos y descargamos el PDF
       const blob = await pdf(
         <PdfReport formData={formData} result={result} userName={userName} messages={messages} />
       ).toBlob();
@@ -63,8 +79,7 @@ export default function DashboardClient({ audits, userName }: { audits: any[], u
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Error al regenerar PDF", error);
-      alert("Hubo un error al generar tu reporte.");
+      alert("Error al generar reporte.");
     } finally {
       setIsGenerating(null);
     }
@@ -72,53 +87,79 @@ export default function DashboardClient({ audits, userName }: { audits: any[], u
 
   if (audits.length === 0) {
     return (
-      <div className="bg-white p-10 rounded-4xl border border-slate-100 shadow-sm text-center max-w-2xl mx-auto">
-        <p className="text-slate-500 mb-6 text-lg">Aún no tienes auditorías guardadas en tu cuenta.</p>
-        <a href="/audit" className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all inline-block">
-          Iniciar mi primera auditoría
+      <div className="bg-white p-12 rounded-[3rem] border border-slate-100 shadow-sm text-center max-w-2xl mx-auto">
+        <p className="text-slate-400 mb-8 text-xl font-medium italic">Tu historial de auditorías está vacío.</p>
+        <a href="/audit" className="bg-emerald-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-emerald-200 inline-block">
+          Nueva Auditoría
         </a>
       </div>
     );
   }
 
   return (
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
       {audits.map((audit) => (
-        <div key={audit.id} className="bg-white p-6 rounded-4xl border border-slate-100 shadow-lg hover:border-emerald-200 transition-all flex flex-col justify-between group">
+        <div 
+          key={audit.id} 
+          className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl hover:shadow-2xl hover:border-emerald-200 transition-all flex flex-col justify-between group relative overflow-hidden"
+        >
+          {/* BOTÓN DE ELIMINAR FLOTANTE */}
+          <button
+            onClick={() => handleDelete(audit.id)}
+            disabled={isDeleting === audit.id}
+            className="absolute top-6 right-6 w-12 h-12 bg-white shadow-lg border border-slate-100 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:scale-110 active:scale-90 transition-all z-20"
+            title="Eliminar Auditoría"
+          >
+            {isDeleting === audit.id ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Trash2 className="w-5 h-5" />
+            )}
+          </button>
+
           <div>
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                <Calendar className="w-4 h-4" />
+            {/* CABECERA DE TARJETA */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-4">
+                <Calendar className="w-4 h-4 text-emerald-500" />
                 {new Date(audit.createdAt).toLocaleDateString()}
               </div>
-              <div className="bg-slate-50 border border-slate-200 px-3 py-1 rounded-full text-[10px] font-black text-midnight uppercase tracking-widest">
+              <div className="inline-flex items-center gap-2 bg-midnight text-emerald-pro px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em]">
+                <Target className="w-3 h-3" />
                 {audit.industry}
               </div>
             </div>
 
-            <div className="flex gap-4 mb-6">
-              <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-                <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Score</p>
-                <p className="text-3xl font-black text-midnight">{audit.finalScore}</p>
+            {/* MÉTRICAS PRINCIPALES */}
+            <div className="flex gap-4 mb-8">
+              <div className="flex-1 bg-slate-50 p-5 rounded-3xl border border-slate-100 text-center">
+                <p className="text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest">Score</p>
+                <p className="text-4xl font-black text-midnight italic tracking-tighter">{audit.finalScore}</p>
               </div>
-              <div className="flex-1 bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
-                <p className="text-[10px] uppercase font-bold text-emerald-600 mb-1">Utilidad</p>
-                <p className={`text-xl font-black flex items-center justify-center h-full ${Number(audit.netProfit) < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+              <div className="flex-1 bg-emerald-50/50 p-5 rounded-3xl border border-emerald-100/50 text-center">
+                <p className="text-[10px] uppercase font-bold text-emerald-600 mb-2 tracking-widest">Utilidad</p>
+                <p className={`text-2xl font-black flex items-center justify-center h-full ${Number(audit.netProfit) < 0 ? 'text-red-500' : 'text-emerald-700'}`}>
                   ${Number(audit.netProfit).toLocaleString()}
                 </p>
               </div>
             </div>
           </div>
 
+          {/* ACCIÓN PRINCIPAL */}
           <button
             onClick={() => handleReDownload(audit)}
             disabled={isGenerating === audit.id}
-            className="w-full bg-midnight text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors disabled:opacity-50 mt-auto"
+            className="w-full bg-midnight text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-slate-800 hover:translate-y-[-2px] active:translate-y-[0px] transition-all shadow-lg disabled:opacity-50"
           >
-            {isGenerating === audit.id ? "Preparando Documento..." : (
+            {isGenerating === audit.id ? (
               <>
-                <FileDown className="w-4 h-4" />
-                Descargar Reporte PDF
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generando...
+              </>
+            ) : (
+              <>
+                <FileDown className="w-5 h-5" />
+                Descargar PDF
               </>
             )}
           </button>
