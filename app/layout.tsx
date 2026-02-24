@@ -6,6 +6,7 @@ import CookieBanner from "@/components/CookieBanner";
 import Navbar from "@/components/Navbar"; // Importamos el nuevo componente responsivo
 import { auth } from "@/lib/auth";
 import { Analytics } from "@vercel/analytics/react";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
           <CookieBanner />
           <Analytics />
+          <WhatsAppButton />
         </SessionWrapper>
       </body>
     </html>
