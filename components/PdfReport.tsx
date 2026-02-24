@@ -1,198 +1,120 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'; // Importamos Image
 
-// ==========================================
-// ESTILOS DEL PDF PREMIUM
-// ==========================================
 const styles = StyleSheet.create({
-  page: { padding: 40, backgroundColor: '#FFFFFF', fontFamily: 'Helvetica' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 2, borderBottomColor: '#10b981', paddingBottom: 10, marginBottom: 20 },
-  logoText: { fontSize: 28, fontWeight: 'bold', color: '#0f172a' },
+  page: { padding: 45, backgroundColor: '#FFFFFF', fontFamily: 'Helvetica' },
+  
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  logoText: { fontSize: 22, fontWeight: 'bold', color: '#0f172a' },
   logoAccent: { color: '#10b981' },
-  title: { fontSize: 10, color: '#64748b', marginTop: 2, textTransform: 'uppercase', letterSpacing: 1 },
-  clientInfo: { alignItems: 'flex-end' },
-  label: { fontSize: 9, color: '#94a3b8', marginBottom: 2, textTransform: 'uppercase' },
-  value: { fontSize: 11, fontWeight: 'bold', color: '#0f172a' },
   
-  // Grid de 2 columnas para equilibrar el espacio
-  grid: { flexDirection: 'row', gap: 20, marginBottom: 20 },
-  col: { flex: 1 },
+  // Hero: Score y Gráfica
+  heroContainer: { flexDirection: 'row', gap: 15, marginBottom: 25 },
+  scoreCard: { flex: 1, backgroundColor: '#0f172a', borderRadius: 10, padding: 15, alignItems: 'center' },
+  scoreValue: { color: '#10b981', fontSize: 36, fontWeight: 'bold' },
+  scoreLabel: { color: '#f8fafc', fontSize: 8, textTransform: 'uppercase', marginTop: 4 },
 
-  // Cajas Principales
-  scoreBox: { backgroundColor: '#0f172a', padding: 20, borderRadius: 10, alignItems: 'center', marginBottom: 20 },
-  scoreLabel: { color: '#10b981', fontSize: 10, textTransform: 'uppercase', marginBottom: 5, letterSpacing: 2 },
-  scoreValue: { color: '#FFFFFF', fontSize: 48, fontWeight: 'bold' },
-  
-  section: { marginBottom: 20, padding: 15, backgroundColor: '#f8fafc', borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#10b981' },
-  sectionWarning: { borderLeftColor: '#f59e0b', backgroundColor: '#fffbeb' },
-  sectionTitle: { fontSize: 12, fontWeight: 'bold', color: '#0f172a', marginBottom: 12, textTransform: 'uppercase' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  
-  // Elementos de Barra de Progreso (Gráficas)
-  progressContainer: { marginBottom: 10 },
-  progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  progressLabel: { fontSize: 9, color: '#475569', fontWeight: 'bold' },
-  progressBarBg: { height: 6, backgroundColor: '#e2e8f0', borderRadius: 3, width: '100%' },
-  progressBarFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 3 },
+  chartCard: { flex: 2, backgroundColor: '#f8fafc', borderRadius: 10, padding: 15 },
+  chartTitle: { fontSize: 8, fontWeight: 'bold', color: '#64748b', marginBottom: 8, textTransform: 'uppercase' },
+  barWrapper: { marginBottom: 8 },
+  barLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
+  barText: { fontSize: 7, color: '#475569' },
+  barFull: { height: 8, backgroundColor: '#e2e8f0', borderRadius: 4, width: '100%', overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 4 },
 
-  // Balas / Listas
-  bulletRow: { flexDirection: 'row', marginBottom: 6, paddingRight: 10 },
-  bullet: { fontSize: 10, color: '#10b981', marginRight: 5, fontWeight: 'bold' },
-  bulletText: { fontSize: 10, color: '#334155', lineHeight: 1.4 },
+  // Diagnóstico
+  sectionTitle: { fontSize: 11, fontWeight: 'bold', color: '#0f172a', marginBottom: 12, borderLeft: '3pt solid #10b981', paddingLeft: 8 },
+  messageRow: { flexDirection: 'row', marginBottom: 10 },
+  messageDot: { width: 6, height: 6, borderRadius: 3, marginTop: 3, marginRight: 8 },
+  messageContent: { flex: 1 },
+  messageTitle: { fontSize: 9, fontWeight: 'bold', color: '#0f172a' },
+  messageBody: { fontSize: 8, color: '#475569', lineHeight: 1.3 },
+
+  // CALL TO ACTION (EL QR)
+  ctaSection: { marginTop: 20, paddingTop: 15, borderTop: '1pt solid #e2e8f0', flexDirection: 'row', alignItems: 'center', gap: 20 },
+  qrCode: { width: 80, height: 80 },
+  ctaTextWrapper: { flex: 1 },
+  ctaTitle: { fontSize: 12, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
+  ctaDesc: { fontSize: 9, color: '#64748b', lineHeight: 1.4 },
   
-  // Footer
-  footer: { position: 'absolute', bottom: 30, left: 40, right: 40, textAlign: 'center', color: '#94a3b8', fontSize: 8, borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 10 }
+  footer: { position: 'absolute', bottom: 30, left: 45, right: 45, textAlign: 'center', fontSize: 7, color: '#94a3b8' }
 });
 
-// ==========================================
-// SUBCOMPONENTE: BARRA DE PROGRESO
-// ==========================================
-const ProgressBar = ({ label, score }: { label: string, score: number }) => (
-  <View style={styles.progressContainer}>
-    <View style={styles.progressLabelRow}>
-      <Text style={styles.progressLabel}>{label}</Text>
-      <Text style={styles.progressLabel}>{score}/10</Text>
-    </View>
-    <View style={styles.progressBarBg}>
-      <View style={[styles.progressBarFill, { width: `${score * 10}%` }]} />
-    </View>
-  </View>
-);
-
-// ==========================================
-// ESTRUCTURA DEL DOCUMENTO
-// ==========================================
 export const PdfReport = ({ formData, result, userName, messages }: any) => {
-  // Cálculos de alto impacto para el reporte:
-  const maxRevenue = formData.capacityPerDay * formData.ticketAvg * formData.operatingDays;
-  const currentRevenue = maxRevenue * (formData.occupancy / 100);
-  const moneyLeftOnTable = maxRevenue - currentRevenue;
+  const phoneNumber = "523114000046"; // TU TELÉFONO REAL AQUÍ
+  const waMessage = `Hola Ramsés, terminé mi auditoría en FACTIRAM con un score de ${result.finalScore}/100 y necesito asesoría para mi negocio.`;
+  const waUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(waMessage)}`;
+  
+  // API gratuita para generar el QR
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(waUrl)}`;
+
+  const goal = formData.desiredSalary || 1;
+  const current = result.netProfit || 0;
+  const currentWidth = Math.min(Math.max((current / goal) * 100, 5), 100);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         
-        {/* 1. ENCABEZADO */}
+        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.logoText}>FACTI<Text style={styles.logoAccent}>RAM</Text></Text>
-            <Text style={styles.title}>Reporte de Auditoría Estratégica</Text>
+            <Text style={{ fontSize: 9, color: '#94a3b8' }}>Auditoría Estratégica</Text>
           </View>
-          <View style={styles.clientInfo}>
-            <Text style={styles.label}>Auditoría para:</Text>
-            <Text style={styles.value}>{userName || 'Negocio Confidencial'}</Text>
-            <Text style={styles.label}>{new Date().toLocaleDateString()}</Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold' }}>{userName}</Text>
+            <Text style={{ fontSize: 8, color: '#94a3b8' }}>{new Date().toLocaleDateString()}</Text>
           </View>
         </View>
 
-        {/* 2. CALIFICACIÓN GLOBAL */}
-        <View style={styles.scoreBox}>
-          <Text style={styles.scoreLabel}>Índice de Salud del Negocio</Text>
-          <Text style={styles.scoreValue}>{result.finalScore} / 100</Text>
-        </View>
-
-        <View style={styles.grid}>
-          {/* COLUMNA IZQUIERDA */}
-          <View style={styles.col}>
-            {/* FINANZAS */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Resumen Financiero Mensual</Text>
-              <View style={styles.row}>
-                <Text style={styles.label}>Utilidad Neta Real:</Text>
-                <Text style={[styles.value, { color: result.netProfit < 0 ? '#ef4444' : '#10b981' }]}>
-                  ${result.netProfit.toLocaleString()}
-                </Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>Punto de Equilibrio:</Text>
-                <Text style={styles.value}>${result.breakEvenPoint?.toLocaleString() || '0'}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>Gastos Fijos:</Text>
-                <Text style={styles.value}>${formData.fixedCosts.toLocaleString()}</Text>
-              </View>
-            </View>
-
-            {/* EFICIENCIA Y CAPACIDAD (El dato que duele) */}
-            <View style={[styles.section, styles.sectionWarning]}>
-              <Text style={styles.sectionTitle}>Fuga de Capital (Eficiencia)</Text>
-              <View style={styles.row}>
-                <Text style={styles.label}>Ocupación Actual:</Text>
-                <Text style={styles.value}>{formData.occupancy}%</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.label}>Ingreso Actual Estimado:</Text>
-                <Text style={styles.value}>${currentRevenue.toLocaleString()}</Text>
-              </View>
-              <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: '#fde68a', paddingTop: 8 }}>
-                <Text style={[styles.label, { color: '#d97706' }]}>Dinero "Sobre la mesa" por falta de ventas:</Text>
-                <Text style={[styles.value, { color: '#ef4444', fontSize: 14 }]}>
-                  -${moneyLeftOnTable.toLocaleString()} mensuales
-                </Text>
-              </View>
-            </View>
+        {/* Hero */}
+        <View style={styles.heroContainer}>
+          <View style={styles.scoreCard}>
+            <Text style={styles.scoreValue}>{result.finalScore}</Text>
+            <Text style={styles.scoreLabel}>Health Score</Text>
           </View>
-
-          {/* COLUMNA DERECHA */}
-          <View style={styles.col}>
-            {/* MERCADO (Nuestras gráficas simuladas) */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Análisis de Competitividad</Text>
-              <ProgressBar label="Visibilidad Local" score={formData.visibilityScore} />
-              <ProgressBar label="Fuerza y Presencia Digital" score={formData.digitalScore} />
-              <ProgressBar label="Diferenciación de Marca" score={formData.differentiation} />
-              <ProgressBar label="Nivel frente a Competencia" score={formData.competitionScore} />
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>Comparativa de Rentabilidad</Text>
+            <View style={styles.barWrapper}>
+              <View style={styles.barLabels}><Text style={styles.barText}>Meta de Sueldo</Text><Text style={styles.barText}>${goal.toLocaleString()}</Text></View>
+              <View style={styles.barFull}><View style={{ ...styles.barFill, width: '100%', backgroundColor: '#64748b' }} /></View>
+            </View>
+            <View style={styles.barWrapper}>
+              <View style={styles.barLabels}><Text style={styles.barText}>Utilidad Actual</Text><Text style={styles.barText}>${current.toLocaleString()}</Text></View>
+              <View style={styles.barFull}><View style={{ ...styles.barFill, width: `${currentWidth}%`, backgroundColor: current >= goal ? '#10b981' : '#ef4444' }} /></View>
             </View>
           </View>
         </View>
 
-        {/* 3. PLAN DE ACCIÓN (Semillas base) */}
-       {/* 3. PLAN DE ACCIÓN (Dinámico desde la Base de Datos) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Plan de Acción Recomendado</Text>
-          
-          {messages && messages.length > 0 ? (
-            // Ordenamos los mensajes para que los ROJOS salgan primero
-            messages
-              .sort((a: any, b: any) => {
-                const weights: any = { RED: 1, YELLOW: 2, GREEN: 3 };
-                return weights[a.color] - weights[b.color];
-              })
-              // Tomamos máximo los 5 mensajes más críticos para no desbordar la hoja
-              .slice(0, 5)
-              .map((msg: any, index: number) => {
-                // Truco Pro: Separamos el título del texto por los "Dos Puntos (:)" para ponerlo en negritas
-                const parts = msg.message.split(':');
-                const title = parts[0];
-                const body = parts.length > 1 ? parts.slice(1).join(':') : '';
+        {/* Diagnóstico */}
+        <Text style={styles.sectionTitle}>Hallazgos Críticos</Text>
+        {messages?.slice(0, 5).map((msg: any, i: number) => {
+          const [title, ...bodyParts] = msg.message.split(':');
+          return (
+            <View key={i} style={styles.messageRow}>
+              <View style={[styles.messageDot, { backgroundColor: msg.color === 'RED' ? '#ef4444' : '#f59e0b' }]} />
+              <View style={styles.messageContent}>
+                <Text style={styles.messageTitle}>{title}</Text>
+                <Text style={styles.messageBody}>{bodyParts.join(':')}</Text>
+              </View>
+            </View>
+          );
+        })}
 
-                return (
-                  <View key={index} style={styles.bulletRow}>
-                    <Text style={[styles.bullet, { 
-                      color: msg.color === 'RED' ? '#ef4444' : msg.color === 'YELLOW' ? '#d97706' : '#10b981' 
-                    }]}>•</Text>
-                    <Text style={styles.bulletText}>
-                      {body ? (
-                        <>
-                          <Text style={{ fontWeight: 'bold' }}>{title}:</Text>{body}
-                        </>
-                      ) : (
-                        msg.message
-                      )}
-                    </Text>
-                  </View>
-                );
-              })
-          ) : (
-            <Text style={styles.bulletText}>Calculando plan de acción estratégico...</Text>
-          )}
+        {/* CALL TO ACTION CON QR */}
+        <View style={styles.ctaSection}>
+          <Image src={qrUrl} style={styles.qrCode} />
+          <View style={styles.ctaTextWrapper}>
+            <Text style={styles.ctaTitle}>¿Quieres mejorar estos números?</Text>
+            <Text style={styles.ctaDesc}>
+              Escanea el código QR para agendar una sesión de consultoría personalizada. 
+              Analizaremos tu caso para encontrar fugas de capital y optimizar tu rentabilidad hoy mismo.
+            </Text>
+          </View>
         </View>
 
-        {/* 4. NOTA AL PIE */}
-        <Text style={styles.footer}>
-          Este documento confidencial fue generado automáticamente por el motor analítico de FACTIRAM el {new Date().toLocaleDateString()}. 
-          Los datos reflejan una auditoría basada en la información proporcionada por el usuario.
-        </Text>
-        
+        <Text style={styles.footer}>Documento generado por FACTIRAM.com - Consultoría Estratégica Automatizada</Text>
       </Page>
     </Document>
   );
