@@ -8,15 +8,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { 
   ArrowRight, ArrowLeft, CheckCircle2, 
-  Factory, Store, UserCog, Utensils, TrendingUp, Target, MousePointer2, RefreshCcw, AlertCircle
+  Factory, Store, UserCog, Utensils, TrendingUp, Target, MousePointer2, RefreshCcw, AlertCircle, ShieldCheck
 } from "lucide-react";
-import { AuditInputs, IndustryType, AuditStatus, calculateAuditResults, MODEL_VERSION } from "@/lib/engine"; 
+// Importamos TaxStatus para que el formulario lo reconozca
+import { AuditInputs, IndustryType, AuditStatus, TaxStatus, calculateAuditResults, MODEL_VERSION } from "@/lib/engine"; 
 
 /* =========================================================
-   0. TIPOS Y CONTEXTOS (Mantenemos todo lo que ya pulimos)
+   0. TIPOS Y CONTEXTOS
 ========================================================= */
 type AuditResult = ReturnType<typeof calculateAuditResults>;
-type NumericFields = { [K in keyof AuditInputs]: AuditInputs[K] extends number ? K : never; }[keyof AuditInputs];
 
 const INDUSTRY_CONTEXT = {
   [IndustryType.COMIDA]: {
@@ -80,8 +80,10 @@ export default function AuditForm() {
   const [result, setResult] = useState<AuditResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [diagnosticMessages, setDiagnosticMessages] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const [formData, setFormData] = useState<AuditInputs & { occupancy: number }>({
+  // Estado inicial sincronizado con el Engine v1.3.3
+  const [formData, setFormData] = useState<AuditInputs>({
     industry: IndustryType.COMIDA,
     status: AuditStatus.PROYECTO,
     ticketAvg: 0,
@@ -97,15 +99,13 @@ export default function AuditForm() {
     competitionScore: 5,
     differentiation: 5,
     digitalScore: 5,
-    taxStatus: "INFORMAL",
+    taxStatus: TaxStatus.INFORMAL, // Default inicial
   });
 
   const ctx = INDUSTRY_CONTEXT[formData.industry];
   const isIdea = formData.status === AuditStatus.PROYECTO;
 
-  // Persistencia y Scroll
-  // Auto-scroll al cambiar paso o mostrar resultado
-// Buscar los mensajes de diagnóstico dinámicos en la BD
+  // Carga de mensajes dinámicos
   useEffect(() => {
     if (result && formData) {
       const fetchMessages = async () => {
@@ -134,39 +134,29 @@ export default function AuditForm() {
     window.scrollTo({ top: 0, behavior: "smooth" }); 
   }, [step, result]);
 
-  // Persistencia y Recuperación tras Login de Google
+  // Recuperación de borrador
   useEffect(() => {
     const saved = localStorage.getItem("factiram_draft");
     if (saved) {
       const parsedData = JSON.parse(saved);
       setFormData(parsedData);
 
-      // Revisamos si venimos de regreso de Google
       const pendingReturn = sessionStorage.getItem("factiram_return");
       if (pendingReturn) {
         try {
-          // Re-calculamos el resultado con los datos guardados
           const calculatedResult = calculateAuditResults(parsedData);
           setResult(calculatedResult);
-          // Forzamos que la vista se vaya directo al paso 4
           setStep(4);
-        } catch (err) {
-          console.error(err);
-        }
-        // Borramos la nota para que no se quede trabado en el futuro
+        } catch (err) { console.error(err); }
         sessionStorage.removeItem("factiram_return");
       }
     }
   }, []);
 
-  // GUARDADO AUTOMÁTICO EN TIEMPO REAL
-  // Cada vez que formData o step cambian, lo guardamos en el navegador
+  // Guardado automático
   useEffect(() => {
-    // No guardamos si está en el paso final o está vacío para evitar bugs raros
     if (step < 4) {
       localStorage.setItem("factiram_draft", JSON.stringify(formData));
-      // Opcional: También guardamos el paso en el que se quedó
-      localStorage.setItem("factiram_step", step.toString());
     }
   }, [formData, step]);
 
@@ -177,7 +167,7 @@ export default function AuditForm() {
 
   const resetAudit = () => {
     localStorage.removeItem("factiram_draft");
-    window.location.href = "/audit"; // Recarga forzada limpia para evitar bugs de navegación
+    window.location.href = "/audit";
   };
 
   const handleNext = () => {
@@ -189,14 +179,9 @@ export default function AuditForm() {
     setStep(s => s + 1);
   };
 
-  /* --- BUG FIXED: Esta función solo se llama desde el botón naranja/verde final --- */
- const [isGenerating, setIsGenerating] = useState(false); // Para evitar dobles clics
-
   const handleDownloadPDF = async () => {
     setIsGenerating(true);
-    
     try {
-      // 1. Guardar en Base de Datos (Lo que hicimos antes)
       if (status === "authenticated" && result) {
         await fetch("/api/save-audit", {
           method: "POST",
@@ -205,27 +190,20 @@ export default function AuditForm() {
         });
       }
 
-      // 2. Construir y Descargar el Archivo PDF
-      // Le pasamos los datos del formulario, los resultados y el nombre del usuario logueado
       const blob = await pdf(
         <PdfReport formData={formData} result={result} userName={session?.user?.name} messages={diagnosticMessages}/>
       ).toBlob();
 
-      // Creamos un link invisible en el navegador para forzar la descarga
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `Diagnostico_FACTIRAM_${new Date().getTime()}.pdf`;
       document.body.appendChild(link);
       link.click();
-      
-      // Limpiamos la memoria
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
     } catch (err) {
-      console.error("Error al generar PDF:", err);
-      alert("Hubo un error al generar tu reporte. Intenta de nuevo.");
+      alert("Hubo un error al generar tu reporte.");
     } finally {
       setIsGenerating(false);
     }
@@ -235,14 +213,13 @@ export default function AuditForm() {
     try {
       const data = calculateAuditResults(formData);
       setResult(data);
-      // NO disparamos la descarga aquí, solo mostramos el resultado.
     } catch (err) {
       alert("Revisa los datos ingresados.");
     }
   };
 
   /* =========================================================
-     3. VISTA DE RESULTADOS
+     3. VISTA DE RESULTADOS (Sin cambios)
   ========================================================== */
   if (result) {
     return (
@@ -340,6 +317,27 @@ export default function AuditForm() {
               {step === 2 && (
                 <div className="space-y-8">
                   <h2 className="text-4xl font-black text-midnight tracking-tighter uppercase italic">2. Finanzas</h2>
+
+                  {/* NUEVO: SELECTOR DE RÉGIMEN FISCAL */}
+                  <div className="bg-midnight p-8 rounded-[2.5rem] text-white shadow-2xl space-y-4">
+                    <label className="text-[10px] font-black uppercase text-emerald-pro tracking-widest flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" /> Situación Fiscal (SAT)
+                    </label>
+                    <select 
+                      className="w-full bg-slate-800 border-2 border-slate-700 p-4 rounded-2xl font-bold text-sm outline-none focus:border-emerald-pro transition-all cursor-pointer"
+                      value={formData.taxStatus}
+                      onChange={(e) => updateField("taxStatus", e.target.value)}
+                    >
+                      <option value={TaxStatus.INFORMAL}>Informal / No registrado</option>
+                      <option value={TaxStatus.RESICO}>RESICO (Física)</option>
+                      <option value={TaxStatus.PERSONA_FISICA}>P. Física (Act. Empresarial)</option>
+                      <option value={TaxStatus.PERSONA_MORAL}>P. Moral (Empresa)</option>
+                    </select>
+                    <p className="text-[9px] text-slate-400 italic font-medium">
+                      *Si seleccionas un régimen formal, restaremos un 30% estimado de impuestos para mostrar tu ganancia real.
+                    </p>
+                  </div>
+
                   <div className={`${isIdea ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'} p-6 rounded-[2.5rem] border mb-8`}>
                     <label className={`font-black ${isIdea ? 'text-amber-800' : 'text-emerald-800'} text-[10px] uppercase tracking-widest flex items-center gap-2`}>
                       {isIdea ? <AlertCircle className="w-4 h-4" /> : <Target className="w-4 h-4" />}
@@ -354,9 +352,6 @@ export default function AuditForm() {
                       />
                       <span className={`${isIdea ? 'bg-amber-600' : 'bg-emerald-600'} text-white w-14 h-14 flex items-center justify-center rounded-2xl font-black text-sm shadow-lg`}>{formData.occupancy}%</span>
                     </div>
-                    <p className={`text-[10px] ${isIdea ? 'text-amber-700' : 'text-emerald-700'} mt-2 font-bold italic`}>
-                      {isIdea ? "Para ideas nuevas recomendamos un 20% o 25% para un inicio seguro." : "Si el negocio suele estar vacío pon 10%. Si siempre hay fila pon 90%."}
-                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
@@ -397,19 +392,19 @@ export default function AuditForm() {
                 <div className="text-center py-10 space-y-8">
                   <CheckCircle2 className="w-24 h-24 text-emerald-pro mx-auto drop-shadow-xl" />
                   <h2 className="text-4xl font-black text-midnight uppercase italic tracking-tighter">¡Listo para el diagnóstico!</h2>
-                  <button onClick={handleGenerate} className="bg-emerald-pro text-white px-12 py-5 rounded-2xl font-black uppercase shadow-xl hover:scale-105 cursor-pointer">Ver Resultados</button>
+                  <button onClick={handleGenerate} className="bg-emerald-pro text-white px-12 py-5 rounded-2xl font-black uppercase shadow-xl hover:scale-105 cursor-pointer transition-all">Ver Resultados</button>
                 </div>
               )}
             </motion.div>
           </AnimatePresence>
 
           <div className="mt-16 flex justify-between border-t pt-10 border-slate-100">
-            <Link href="/" className="text-slate-300 font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:text-midnight cursor-pointer">
+            <Link href="/" className="text-slate-300 font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:text-midnight cursor-pointer transition-colors">
               <ArrowLeft className="w-4 h-4" /> Inicio
             </Link>
             <div className="flex gap-4">
               {step > 1 && (
-                <button onClick={() => setStep(s => s - 1)} className="text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-midnight cursor-pointer">Anterior</button>
+                <button onClick={() => setStep(s => s - 1)} className="text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-midnight cursor-pointer transition-colors">Anterior</button>
               )}
               {step < 4 && (
                 <button onClick={handleNext} className="bg-midnight text-white px-10 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 shadow-xl hover:bg-slate-800 transition-all cursor-pointer">Siguiente <ArrowRight className="w-4 h-4 text-emerald-pro" /></button>

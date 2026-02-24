@@ -8,35 +8,43 @@ export { IndustryType, AuditStatus, TaxStatus };
 /* =========================================================
    1. CONFIGURACIÓN Y VERSIONAMIENTO
 ========================================================= */
-export const MODEL_VERSION = "1.3.0"; // Subimos versión por los nuevos Triggers
+export const MODEL_VERSION = "1.3.4"; // v1.3.4: Fix Zod Empty String Errors
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
 /* =========================================================
-   2. ESQUEMA DE VALIDACIÓN (ZOD)
+   2. ESQUEMA DE VALIDACIÓN (ZOD) - VERSIÓN ANTI-ERRORES
 ========================================================= */
+
+// Función auxiliar para limpiar números y evitar el error "too_small" con strings vacíos
+const numericCoerce = z.coerce.number().catch(0);
+
 const AuditInputSchema = z.object({
-  industry: z.enum(IndustryType),
-  status: z.enum(AuditStatus),
-  ticketAvg: z.number().positive().max(9999999),
-  costDirectPercent: z.number().min(0), 
-  fixedCosts: z.number().min(0).max(9999999),
-  desiredSalary: z.number().min(0).max(9999999),
-  marketingSpend: z.number().min(0).max(9999999),
-  emergencyFund: z.number().min(0).default(0),
-  operatingDays: z.number().int().min(1).max(31),
-  visibilityScore: z.number().int().min(1).max(10),
-  competitionScore: z.number().int().min(1).max(10),
-  differentiation: z.number().int().min(1).max(10),
-  capacityPerDay: z.number().min(0).max(9999999),
-  occupancy: z.number().min(5).max(100).default(50),
-  taxStatus: z.enum(TaxStatus),
-  digitalScore: z.number().int().min(1).max(10),
+  industry: z.nativeEnum(IndustryType),
+  status: z.nativeEnum(AuditStatus),
+  
+  // Usamos catch(0) para que si el usuario borra el input, el sistema no explote
+  ticketAvg: z.coerce.number().positive().catch(0.01),
+  costDirectPercent: z.coerce.number().min(0).max(100).catch(0), 
+  fixedCosts: numericCoerce,
+  desiredSalary: numericCoerce,
+  marketingSpend: numericCoerce,
+  emergencyFund: numericCoerce,
+  
+  operatingDays: z.coerce.number().int().min(1).max(31).catch(24),
+  visibilityScore: z.coerce.number().int().min(1).max(10).catch(5),
+  competitionScore: z.coerce.number().int().min(1).max(10).catch(5),
+  differentiation: z.coerce.number().int().min(1).max(10).catch(5),
+  capacityPerDay: numericCoerce,
+  occupancy: z.coerce.number().min(1).max(100).catch(50),
+  
+  taxStatus: z.nativeEnum(TaxStatus),
+  digitalScore: z.coerce.number().int().min(1).max(10).catch(5),
 });
 
 export type AuditInputs = z.infer<typeof AuditInputSchema>;
 
 /* =========================================================
-   3. CÁLCULOS FINANCIEROS (EL CORAZÓN)
+   3. CÁLCULOS FINANCIEROS (CON REALIDAD FISCAL)
 ========================================================= */
 function calculateFinancials(data: AuditInputs) {
   const ticket = new Decimal(data.ticketAvg);
@@ -46,37 +54,25 @@ function calculateFinancials(data: AuditInputs) {
   const salary = new Decimal(data.desiredSalary);
   const capacity = new Decimal(data.capacityPerDay);
   const days = new Decimal(data.operatingDays);
-  
   const occupancy = new Decimal(data.occupancy).div(100);
 
   const optimismFactor = data.status === AuditStatus.PROYECTO 
     ? new Decimal(0.8) 
     : new Decimal(1.0);
 
-  // Margen unitario (Puede ser negativo si costPct > 100%)
   const marginPerUnit = ticket.mul(new Decimal(1).sub(costPct));
-
-  // Si el margen es negativo, el negocio pierde dinero con cada venta
-  if (marginPerUnit.lte(0)) {
-    const monthlyVolume = capacity.mul(days).mul(optimismFactor).mul(occupancy);
-    const netLoss = marginPerUnit.mul(monthlyVolume).sub(fixed);
-
-    return {
-      isViable: false,
-      marginPerUnit,
-      breakEvenMoney: new Decimal(0),
-      netProfit: netLoss,
-      ltvProxy: new Decimal(0),
-      cacProxy: new Decimal(0),
-      salary,
-      marketing,
-      capacity,
-    };
-  }
-
   const monthlyVolume = capacity.mul(days).mul(optimismFactor).mul(occupancy);
-  const netProfit = marginPerUnit.mul(monthlyVolume).sub(fixed);
-  const breakEvenUnits = fixed.div(marginPerUnit);
+
+  const operatingProfit = marginPerUnit.mul(monthlyVolume).sub(fixed);
+
+  // GOLPE DE REALIDAD: Impuestos
+  const taxMultiplier = data.taxStatus === TaxStatus.INFORMAL 
+    ? new Decimal(1) 
+    : new Decimal(0.7);
+
+  const finalNetProfit = operatingProfit.mul(taxMultiplier);
+
+  const breakEvenUnits = marginPerUnit.gt(0) ? fixed.div(marginPerUnit) : new Decimal(0);
   const breakEvenMoney = breakEvenUnits.mul(ticket);
 
   const ltvProxy = marginPerUnit.mul(6);
@@ -85,10 +81,10 @@ function calculateFinancials(data: AuditInputs) {
       : new Decimal(0);
 
   return {
-    isViable: true,
+    isViable: marginPerUnit.gt(0),
     marginPerUnit,
     breakEvenMoney,
-    netProfit,
+    netProfit: finalNetProfit,
     ltvProxy,
     cacProxy,
     salary,
@@ -118,57 +114,39 @@ function calculateScores(data: AuditInputs, financials: ReturnType<typeof calcul
   const marketScore = Math.min(marketBase * 4, 40);
   const digitalScore = Math.min(data.digitalScore * 2, 20);
 
-  const finalScore = Math.min(Math.round(financeScore + marketScore + digitalScore), 100);
-
-  return { financeScore, marketScore, digitalScore, finalScore };
+  return { finalScore: Math.min(Math.round(financeScore + marketScore + digitalScore), 100) };
 }
 
 /* =========================================================
-   5. GENERADOR DE CONDICIONES (TRIGGERS INTELIGENTES)
+   5. GENERADOR DE CONDICIONES (TRIGGERS)
 ========================================================= */
 function generateConditions(data: AuditInputs, financials: ReturnType<typeof calculateFinancials>) {
   const conditions: string[] = [];
-  
-  // Capacidad máxima de ingresos mensuales si estuviera al 100%
   const maxRevenue = data.ticketAvg * data.capacityPerDay * data.operatingDays;
 
-  // --- TRIGGERS NUEVOS (Basados en la Semilla Maestra) ---
-  
   if (financials.netProfit.lt(0)) conditions.push("NEGATIVE_PROFIT");
-  
-  // Si el punto de equilibrio es mayor al 70% de las ventas máximas posibles
   if (financials.breakEvenMoney.toNumber() > (maxRevenue * 0.7)) conditions.push("HIGH_FIXED_COSTS");
-  
   if (data.occupancy < 50) conditions.push("LOW_OCCUPANCY");
-  
   if (data.digitalScore < 5) conditions.push("POOR_DIGITAL_PRESENCE");
   
-  // "Lleno pero pobre": Ocupación > 75% pero ganancia menor a la mitad de su sueldo ideal
   if (data.occupancy >= 75 && financials.netProfit.toNumber() < (data.desiredSalary * 0.5)) {
     conditions.push("BUSY_BUT_BROKE");
   }
 
-  // --- TRIGGERS EXISTENTES ---
-  if (financials.capacity.eq(0)) conditions.push("ZERO_CAPACITY");
   if (financials.marginPerUnit.lte(0)) conditions.push("NEGATIVE_MARGIN");
-  if (new Decimal(data.costDirectPercent).gt(60)) conditions.push("HIGH_COSTS");
-  
-  if (financials.netProfit.gt(0) && financials.netProfit.lt(financials.salary)) conditions.push("LOW_PROFITABILITY");
+  if (data.costDirectPercent > 60) conditions.push("HIGH_COSTS");
   if (data.differentiation < 4) conditions.push("COMMODITY_RISK");
-  if (financials.marketing.eq(0) && data.status === "EN_MARCHA") conditions.push("NO_MARKETING");
-  
-  if (financials.cacProxy.gt(financials.ltvProxy) && financials.cacProxy.gt(0)) {
-    conditions.push("UNSUSTAINABLE_CAC");
-  }
+  if (data.marketingSpend === 0 && data.status === AuditStatus.EN_MARCHA) conditions.push("NO_MARKETING");
 
   return conditions;
 }
 
 /* =========================================================
-   6. ORQUESTADOR (EXPORTADO)
+   6. ORQUESTADOR (SAFE PARSE)
 ========================================================= */
 export function calculateAuditResults(rawData: unknown) {
   try {
+    // Usamos .parse porque ahora el esquema tiene .catch() para auto-corregirse
     const data = AuditInputSchema.parse(rawData);
     const financials = calculateFinancials(data);
     const scores = calculateScores(data, financials);
@@ -182,7 +160,7 @@ export function calculateAuditResults(rawData: unknown) {
       ltvCacRatio: financials.cacProxy.gt(0)
           ? financials.ltvProxy.div(financials.cacProxy).toDecimalPlaces(2).toNumber()
           : null,
-      triggeredConditions: conditions, // ¡Aquí viajan las llaves hacia el frontend!
+      triggeredConditions: conditions,
     };
   } catch (error) {
     console.error("Critical Engine Error:", error);
