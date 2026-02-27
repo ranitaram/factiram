@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, ChevronRight } from "lucide-react";
+import { Menu, X, ChevronRight, Sparkles } from "lucide-react";
 
 export default function Navbar({ session }: { session: any }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Agregamos la Guía al arreglo de links
   const links = [
     { name: "Método", href: "/#como-funciona" },
+    { name: "La Guía", href: "/guia", highlight: true }, // <-- Nuevo link con marca de resaltado
     { name: "Auditoría", href: "/audit" },
   ];
 
@@ -27,25 +29,33 @@ export default function Navbar({ session }: { session: any }) {
             </span>
           </Link>
           
-          {/* DESKTOP NAV (Oculto en móvil) */}
+          {/* DESKTOP NAV */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-bold text-slate-500 uppercase tracking-wider">
             {links.map((link) => (
-              <Link key={link.name} href={link.href} className="hover:text-midnight transition-colors">
+              <Link 
+                key={link.name} 
+                href={link.href} 
+                className={`transition-colors flex items-center gap-1 ${
+                  link.highlight ? "text-emerald-600 font-black" : "hover:text-midnight"
+                }`}
+              >
+                {link.highlight && <Sparkles className="w-3 h-3" />}
                 {link.name}
               </Link>
             ))}
+            
             {session ? (
-              <Link href="/dashboard" className="text-emerald-600 hover:text-emerald-700 font-black">
-                Panel (Historial)
+              <Link href="/dashboard" className="text-midnight hover:text-emerald-600 font-black border-l pl-8 border-slate-100">
+                Panel
               </Link>
             ) : (
-              <Link href="/audit" className="bg-midnight text-white px-6 py-2.5 rounded-xl hover:bg-slate-800 transition-all text-xs">
+              <Link href="/audit" className="bg-midnight text-white px-6 py-2.5 rounded-xl hover:bg-slate-800 transition-all text-xs shadow-lg shadow-midnight/10">
                 Acceso
               </Link>
             )}
           </nav>
 
-          {/* MOBILE BUTTON (Solo visible en móvil) */}
+          {/* MOBILE BUTTON */}
           <button 
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden p-2 text-midnight"
@@ -64,16 +74,23 @@ export default function Navbar({ session }: { session: any }) {
                 key={link.name} 
                 href={link.href} 
                 onClick={() => setIsOpen(false)}
-                className="text-3xl font-black text-midnight flex justify-between items-center border-b border-slate-100 pb-4"
+                className={`text-3xl font-black flex justify-between items-center border-b border-slate-100 pb-4 ${
+                  link.highlight ? "text-emerald-600" : "text-midnight"
+                }`}
               >
-                {link.name} <ChevronRight className="text-emerald-pro" />
+                <span className="flex items-center gap-3">
+                  {link.name} 
+                  {link.highlight && <span className="text-[10px] bg-emerald-100 px-2 py-1 rounded-md tracking-widest">NUEVO</span>}
+                </span>
+                <ChevronRight className={link.highlight ? "text-emerald-pro" : "text-slate-200"} />
               </Link>
             ))}
+            
             {session ? (
               <Link 
                 href="/dashboard" 
                 onClick={() => setIsOpen(false)}
-                className="text-3xl font-black text-emerald-600 flex justify-between items-center border-b border-slate-100 pb-4"
+                className="text-3xl font-black text-midnight flex justify-between items-center border-b border-slate-100 pb-4"
               >
                 Panel <ChevronRight />
               </Link>
@@ -81,7 +98,7 @@ export default function Navbar({ session }: { session: any }) {
               <Link 
                 href="/audit" 
                 onClick={() => setIsOpen(false)}
-                className="bg-emerald-600 text-white p-6 rounded-2xl text-center text-xl font-black uppercase tracking-widest mt-4"
+                className="bg-midnight text-white p-6 rounded-2xl text-center text-xl font-black uppercase tracking-widest mt-4 shadow-2xl"
               >
                 Empezar Auditoría
               </Link>
