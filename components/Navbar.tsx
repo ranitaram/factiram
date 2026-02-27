@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, ChevronRight, Sparkles } from "lucide-react";
+import { Menu, X, ChevronRight, Sparkles, LayoutGrid } from "lucide-react";
 
 export default function Navbar({ session }: { session: any }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Agregamos la Guía al arreglo de links
+  // Estructura de navegación actualizada
   const links = [
     { name: "Método", href: "/#como-funciona" },
-    { name: "La Guía", href: "/guia", highlight: true }, // <-- Nuevo link con marca de resaltado
+    { name: "La Guía", href: "/guia", highlight: true },
+    { name: "Planes", href: "/planes" },
     { name: "Auditoría", href: "/audit" },
   ];
 
@@ -30,26 +31,28 @@ export default function Navbar({ session }: { session: any }) {
           </Link>
           
           {/* DESKTOP NAV */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-bold text-slate-500 uppercase tracking-wider">
+          <nav className="hidden md:flex items-center gap-7 text-[11px] font-black text-slate-500 uppercase tracking-[0.15em]">
             {links.map((link) => (
               <Link 
                 key={link.name} 
                 href={link.href} 
-                className={`transition-colors flex items-center gap-1 ${
-                  link.highlight ? "text-emerald-600 font-black" : "hover:text-midnight"
+                className={`transition-all flex items-center gap-1.5 hover:scale-105 ${
+                  link.highlight ? "text-emerald-600" : "hover:text-midnight"
                 }`}
               >
-                {link.highlight && <Sparkles className="w-3 h-3" />}
+                {link.highlight && <Sparkles className="w-3.5 h-3.5" />}
                 {link.name}
               </Link>
             ))}
             
+            <div className="h-6 w-px bg-slate-100 mx-2" />
+
             {session ? (
-              <Link href="/dashboard" className="text-midnight hover:text-emerald-600 font-black border-l pl-8 border-slate-100">
+              <Link href="/dashboard" className="text-midnight hover:text-emerald-600 transition-colors">
                 Panel
               </Link>
             ) : (
-              <Link href="/audit" className="bg-midnight text-white px-6 py-2.5 rounded-xl hover:bg-slate-800 transition-all text-xs shadow-lg shadow-midnight/10">
+              <Link href="/audit" className="bg-midnight text-white px-5 py-2.5 rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-midnight/10">
                 Acceso
               </Link>
             )}
@@ -68,41 +71,43 @@ export default function Navbar({ session }: { session: any }) {
       {/* MOBILE MENU OVERLAY */}
       {isOpen && (
         <div className="fixed inset-0 bg-white z-90 md:hidden pt-24 px-6 animate-in slide-in-from-top duration-300">
-          <nav className="flex flex-col gap-6">
+          <nav className="flex flex-col gap-5">
             {links.map((link) => (
               <Link 
                 key={link.name} 
                 href={link.href} 
                 onClick={() => setIsOpen(false)}
-                className={`text-3xl font-black flex justify-between items-center border-b border-slate-100 pb-4 ${
+                className={`text-2xl font-black flex justify-between items-center border-b border-slate-50 pb-5 ${
                   link.highlight ? "text-emerald-600" : "text-midnight"
                 }`}
               >
-                <span className="flex items-center gap-3">
+                <span className="flex items-center gap-3 uppercase tracking-tighter">
                   {link.name} 
-                  {link.highlight && <span className="text-[10px] bg-emerald-100 px-2 py-1 rounded-md tracking-widest">NUEVO</span>}
+                  {link.highlight && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md tracking-[0.2em] font-black">POPULAR</span>}
                 </span>
                 <ChevronRight className={link.highlight ? "text-emerald-pro" : "text-slate-200"} />
               </Link>
             ))}
             
-            {session ? (
-              <Link 
-                href="/dashboard" 
-                onClick={() => setIsOpen(false)}
-                className="text-3xl font-black text-midnight flex justify-between items-center border-b border-slate-100 pb-4"
-              >
-                Panel <ChevronRight />
-              </Link>
-            ) : (
-              <Link 
-                href="/audit" 
-                onClick={() => setIsOpen(false)}
-                className="bg-midnight text-white p-6 rounded-2xl text-center text-xl font-black uppercase tracking-widest mt-4 shadow-2xl"
-              >
-                Empezar Auditoría
-              </Link>
-            )}
+            <div className="pt-6 space-y-4">
+              {session ? (
+                <Link 
+                  href="/dashboard" 
+                  onClick={() => setIsOpen(false)}
+                  className="w-full py-5 rounded-2xl bg-slate-50 text-midnight text-center font-black uppercase tracking-widest text-sm"
+                >
+                  Ir a mi Panel
+                </Link>
+              ) : (
+                <Link 
+                  href="/audit" 
+                  onClick={() => setIsOpen(false)}
+                  className="w-full py-5 rounded-2xl bg-midnight text-white text-center font-black uppercase tracking-widest text-sm shadow-xl"
+                >
+                  Empezar Auditoría
+                </Link>
+              )}
+            </div>
           </nav>
         </div>
       )}

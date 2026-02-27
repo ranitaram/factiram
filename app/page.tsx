@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, BarChart3, ShieldCheck, Zap, Star, CheckCircle2, TrendingUp } from "lucide-react";
+import PricingTable from "@/components/PricingTable"; // <-- Importamos tu nueva tabla
 
 export default function LandingPage() {
   return (
@@ -35,7 +38,7 @@ export default function LandingPage() {
       </section>
 
       {/* 2. CÓMO FUNCIONA (Los 3 pasos) */}
-      <section id="como-funciona" className="max-w-5xl mx-auto">
+      <section id="como-funciona" className="max-w-5xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-black text-midnight uppercase tracking-tighter italic">¿Cómo funciona FACTIRAM?</h2>
           <p className="text-slate-400 mt-2 font-bold uppercase text-[10px] tracking-widest">Tecnología al servicio de tu rentabilidad</p>
@@ -89,14 +92,19 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 4. PREGUNTAS FRECUENTES (Objeciones) */}
-      <section className="max-w-3xl mx-auto">
+      {/* 4. PLANES DE INTERVENCIÓN (La oferta técnica) */}
+      {/* 🚨 Aquí insertamos el componente que creamos hoy */}
+      <PricingTable />
+
+      {/* 5. PREGUNTAS FRECUENTES (Objeciones) */}
+      <section className="max-w-3xl mx-auto px-6">
         <h2 className="text-3xl font-black text-center text-midnight uppercase tracking-tighter italic mb-12">Dudas Rápidas</h2>
         <div className="space-y-4">
           {[
             { q: "¿Es realmente gratis?", a: "Sí. La auditoría y la descarga del reporte PDF son 100% gratuitos. Nuestro objetivo es aportar valor real a tu negocio desde el día uno." },
-            { q: "¿Mis datos financieros están seguros?", a: "Absolutamente. Utilizamos tecnología en la nube cifrada y nunca compartiremos tus números exactos con terceros. Son solo para calcular tu reporte." },
-            { q: "¿Para qué industrias funciona?", a: "El algoritmo está entrenado para Alimentos y Bebidas, Servicios Profesionales, Venta de Productos (Retail) y Servicios Técnicos u Oficios." }
+            { q: "¿Mis datos financieros están seguros?", a: "Absolutamente. Utilizamos tecnología en la nube cifrada y nunca compartiremos tus números exactos con terceros." },
+            { q: "¿Para qué industrias funciona?", a: "Alimentos y Bebidas, Servicios Profesionales, Venta de Productos (Retail) y Servicios Técnicos u Oficios." },
+            { q: "¿Qué incluye la asesoría personalizada?", a: "Nuestros planes de 14 y 28 días son intervenciones técnicas donde auditamos tu evidencia digital para corregir márgenes y flujo de caja." }
           ].map((faq, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex gap-4">
               <CheckCircle2 className="w-6 h-6 text-emerald-pro shrink-0" />
@@ -109,8 +117,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. CALL TO ACTION FINAL */}
-      <section className="text-center pb-10">
+      {/* 6. CALL TO ACTION FINAL */}
+      <section className="text-center pb-10 px-6">
         <div className="bg-emerald-50 border border-emerald-100 p-12 rounded-[3rem] max-w-4xl mx-auto">
           <TrendingUp className="w-16 h-16 text-emerald-pro mx-auto mb-6" />
           <h2 className="text-4xl font-black text-midnight tracking-tighter uppercase italic mb-6">Deja de adivinar el futuro de tu empresa</h2>
