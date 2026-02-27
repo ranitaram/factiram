@@ -86,28 +86,29 @@ model VerificationToken {
 }
 
 // ===============================
-// USER MODEL (SaaS Ready)
+// USER MODEL
 // ===============================
 
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
   name          String?
-  password      String?   // <-- Hecho opcional porque el login de Google no da password
-  emailVerified DateTime? // <-- Requerido por Auth.js
-  image         String?   // <-- Requerido para la foto de perfil de Google
+  password      String?
+  emailVerified DateTime?
+  image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   accounts      Account[]
   sessions      Session[]
   audits        Audit[]
+  purchases     Purchase[]
 
   @@index([email])
 }
 
 // ===============================
-// AUDIT MODEL (Core Engine)
+// AUDIT MODEL
 // ===============================
 
 model Audit {
@@ -118,9 +119,6 @@ model Audit {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  // -------------------------------
-  // BLOQUE 1: FINANZAS
-  // -------------------------------
   ticketAvg         Decimal      @db.Decimal(12, 2)
   costDirectPercent Decimal      @db.Decimal(5, 2)
   fixedCosts        Decimal      @db.Decimal(12, 2)
@@ -128,43 +126,65 @@ model Audit {
   marketingSpend    Decimal      @db.Decimal(12, 2) @default(0)
   emergencyFund     Int
   operatingDays     Int
-  
-  // <-- NUEVO: Guardamos la ocupación real del negocio
-  occupancy         Decimal      @db.Decimal(5, 2) @default(20) 
+  occupancy         Decimal      @db.Decimal(5, 2) @default(20)
 
-  // -------------------------------
-  // BLOQUE 2: MERCADO
-  // -------------------------------
   visibilityScore   Int
   competitionScore  Int
   differentiation   Int
 
-  // -------------------------------
-  // BLOQUE 3: CAPACIDAD
-  // -------------------------------
   capacityPerDay    Int
   taxStatus         TaxStatus
   digitalScore      Int
 
-  // -------------------------------
-  // RESULTADOS CACHEADOS
-  // -------------------------------
   finalScore        Int?
   breakEvenPoint    Decimal?     @db.Decimal(12, 2)
   ltvCacRatio       Decimal?     @db.Decimal(12, 2)
   netProfit         Decimal?     @db.Decimal(12, 2)
-  
-  fullDiagnosis     Json?        
 
-  // -------------------------------
-  // RELACIÓN CON USUARIO
-  // -------------------------------
+  fullDiagnosis     Json?
+
   userId            String?
   user              User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([industry])
   @@index([status])
   @@index([userId])
+}
+
+// ===============================
+// PURCHASE MODEL (Ventas & Descargas)
+// ===============================
+
+model Purchase {
+  id                String    @id @default(uuid())
+
+  // Datos comerciales
+  email             String
+  productId         String
+  amount            Decimal   @db.Decimal(12, 2)
+  status            String    @default("PENDING") // PENDING | PAID | FAILED
+
+  // Mercado Pago
+  mpPreferenceId    String?   @unique
+  mpPaymentId       String?   @unique
+
+  // Descarga segura
+  downloadToken     String?   @unique
+  downloadCount     Int       @default(0)
+  downloadLimit     Int       @default(3)
+  downloadExpiresAt DateTime?
+  lastDownloadAt    DateTime?
+
+  // Relación con usuario
+  userId            String?
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([email])
+  @@index([userId])
+  @@index([userId, status])
 }
 
 // ===============================

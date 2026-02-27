@@ -6,6 +6,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import CheckoutButton from "./CheckoutButton"; // <-- agregado
 import { 
   ArrowRight, ArrowLeft, CheckCircle2, 
   Factory, Store, UserCog, Utensils, TrendingUp, Target, MousePointer2, RefreshCcw, AlertCircle, ShieldCheck
@@ -104,6 +105,15 @@ export default function AuditForm() {
 
   const ctx = INDUSTRY_CONTEXT[formData.industry];
   const isIdea = formData.status === AuditStatus.PROYECTO;
+
+  // NUEVO: estado para el email del checkout
+  const [checkoutEmail, setCheckoutEmail] = useState<string>(session?.user?.email ?? "");
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      setCheckoutEmail(session.user.email);
+    }
+  }, [session]);
 
   // Carga de mensajes dinámicos
   useEffect(() => {
@@ -219,7 +229,7 @@ export default function AuditForm() {
   };
 
   /* =========================================================
-     3. VISTA DE RESULTADOS (Sin cambios)
+     3. VISTA DE RESULTADOS (Sin cambios salvo el bloque premium agregado)
   ========================================================== */
   if (result) {
     return (
@@ -240,6 +250,40 @@ export default function AuditForm() {
             <div className={`text-3xl font-black ${result.netProfit < 0 ? 'text-red-500' : 'text-midnight'}`}>
               ${result.netProfit.toLocaleString()}
             </div>
+          </div>
+        </div>
+
+        {/* 🔥 BLOQUE PREMIUM ESTRATÉGICO */}
+        <div className="bg-white border-2 border-emerald-100 p-10 rounded-[3rem] shadow-xl space-y-6 text-center">
+          <div className="flex items-center justify-center gap-2 text-emerald-600 font-black uppercase text-xs tracking-widest">
+            <ShieldCheck className="w-4 h-4" />
+            Plan de Acción Avanzado
+          </div>
+
+          <h3 className="text-3xl font-black text-midnight italic tracking-tighter uppercase">
+            No te quedes solo con el diagnóstico
+          </h3>
+
+          <p className="text-slate-500 font-bold text-sm max-w-2xl mx-auto">
+            Ya viste tu puntuación. Ahora necesitas el método exacto para corregirlo.
+            La Guía Maestra FACTIRAM te explica paso a paso cómo blindar tu caja,
+            mejorar tu margen y ejecutar el rescate financiero.
+          </p>
+
+          {!session?.user?.email && (
+            <div className="max-w-md mx-auto">
+              <input
+                type="email"
+                placeholder="Tu correo para enviarte la guía"
+                value={checkoutEmail}
+                onChange={(e) => setCheckoutEmail(e.target.value)}
+                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-bold text-midnight outline-none focus:border-emerald-pro"
+              />
+            </div>
+          )}
+
+          <div className="max-w-2xl mx-auto">
+            <CheckoutButton email={checkoutEmail} />
           </div>
         </div>
 
