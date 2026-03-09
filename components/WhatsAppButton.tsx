@@ -5,7 +5,7 @@ import { MessageCircle } from "lucide-react";
 export default function WhatsAppButton() {
   // Configura aquí tu número (Formato internacional sin el +)
   // Ejemplo: 52311XXXXXXX (52 de México + 311 de Tepic + tu número)
-  const phoneNumber = "523114000046"; 
+  const phoneNumber = "523318502310"; 
   const message = encodeURIComponent("¡Hola! Vengo de Factiram y me gustaría recibir más información sobre mi auditoría.");
 
   return (
