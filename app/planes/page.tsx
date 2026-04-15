@@ -1,6 +1,7 @@
 "use client";
 
 import PricingTable from "@/components/PricingTable";
+import PricingTableEtapas from "@/components/PricingTableEtapas";
 import { motion } from "framer-motion";
 import { ShieldCheck, MessageSquare, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
@@ -46,13 +47,15 @@ export default function PlanesPage() {
       {/* --- TABLA DE PRECIOS --- */}
       {/* El margen negativo -mt-24 hace que la tabla se encime un poco en el hero, viéndose muy moderno */}
       <div className="-mt-24 relative z-20 pb-20">
-        <PricingTable />
+        <PricingTableEtapas/>
+        <PricingTable /> 
+           
       </div>
 
       {/* --- SECCIÓN DE CIERRE Y CONFIANZA --- */}
       <section className="py-24 px-6 bg-white border-t border-slate-100">
         <div className="max-w-4xl mx-auto text-center space-y-8">
-          <div className="bg-slate-50 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+          <div className="bg-slate-50 w-20 h-20 rounded-4xl flex items-center justify-center mx-auto shadow-inner">
             <ShieldCheck className="w-10 h-10 text-midnight" />
           </div>
           

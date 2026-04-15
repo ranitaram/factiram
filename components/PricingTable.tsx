@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Check, Zap, ShieldAlert, Rocket, MessageSquare, Clock } from "lucide-react";
 
 export default function PricingTable() {
-  const phoneNumber = "523114000046";
+  const phoneNumber = "523318502310";
 
   const plans = [
     {
