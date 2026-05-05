@@ -67,6 +67,7 @@ model Account {
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([provider, providerAccountId])
 }
 
@@ -82,6 +83,7 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
 
@@ -99,10 +101,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  audits        Audit[]
-  purchases     Purchase[]
+  accounts  Account[]
+  sessions  Session[]
+  audits    Audit[]
+  purchases Purchase[]
+
+  // 👇 AGREGA ESTO
+  usuarioNegocios UsuarioNegocio[]
 
   @@index([email])
 }
@@ -112,39 +117,39 @@ model User {
 // ===============================
 
 model Audit {
-  id                String       @id @default(uuid())
-  industry          IndustryType
-  status            AuditStatus  @default(PROYECTO)
+  id       String       @id @default(uuid())
+  industry IndustryType
+  status   AuditStatus  @default(PROYECTO)
 
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  ticketAvg         Decimal      @db.Decimal(12, 2)
-  costDirectPercent Decimal      @db.Decimal(5, 2)
-  fixedCosts        Decimal      @db.Decimal(12, 2)
-  desiredSalary     Decimal      @db.Decimal(12, 2)
-  marketingSpend    Decimal      @db.Decimal(12, 2) @default(0)
+  ticketAvg         Decimal @db.Decimal(12, 2)
+  costDirectPercent Decimal @db.Decimal(5, 2)
+  fixedCosts        Decimal @db.Decimal(12, 2)
+  desiredSalary     Decimal @db.Decimal(12, 2)
+  marketingSpend    Decimal @default(0) @db.Decimal(12, 2)
   emergencyFund     Int
   operatingDays     Int
-  occupancy         Decimal      @db.Decimal(5, 2) @default(20)
+  occupancy         Decimal @default(20) @db.Decimal(5, 2)
 
-  visibilityScore   Int
-  competitionScore  Int
-  differentiation   Int
+  visibilityScore  Int
+  competitionScore Int
+  differentiation  Int
 
-  capacityPerDay    Int
-  taxStatus         TaxStatus
-  digitalScore      Int
+  capacityPerDay Int
+  taxStatus      TaxStatus
+  digitalScore   Int
 
-  finalScore        Int?
-  breakEvenPoint    Decimal?     @db.Decimal(12, 2)
-  ltvCacRatio       Decimal?     @db.Decimal(12, 2)
-  netProfit         Decimal?     @db.Decimal(12, 2)
+  finalScore     Int?
+  breakEvenPoint Decimal? @db.Decimal(12, 2)
+  ltvCacRatio    Decimal? @db.Decimal(12, 2)
+  netProfit      Decimal? @db.Decimal(12, 2)
 
-  fullDiagnosis     Json?
+  fullDiagnosis Json?
 
-  userId            String?
-  user              User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([industry])
   @@index([status])
@@ -156,17 +161,17 @@ model Audit {
 // ===============================
 
 model Purchase {
-  id                String    @id @default(uuid())
+  id String @id @default(uuid())
 
   // Datos comerciales
-  email             String
-  productId         String
-  amount            Decimal   @db.Decimal(12, 2)
-  status            String    @default("PENDING") // PENDING | PAID | FAILED
+  email     String
+  productId String
+  amount    Decimal @db.Decimal(12, 2)
+  status    String  @default("PENDING") // PENDING | PAID | FAILED
 
   // Mercado Pago
-  mpPreferenceId    String?   @unique
-  mpPaymentId       String?   @unique
+  mpPreferenceId String? @unique
+  mpPaymentId    String? @unique
 
   // Descarga segura
   downloadToken     String?   @unique
@@ -176,11 +181,11 @@ model Purchase {
   lastDownloadAt    DateTime?
 
   // Relación con usuario
-  userId            String?
-  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([userId])
@@ -192,18 +197,185 @@ model Purchase {
 // ===============================
 
 model DiagnosticMessage {
-  id            Int                @id @default(autoincrement())
-  category      DiagnosticCategory
-  industry      IndustryType?
-  status        AuditStatus?
-  minScore      Int
-  maxScore      Int
-  conditionKey  String?
-  message       String             @db.Text
-  color         MessageColor
-  createdAt     DateTime           @default(now())
+  id           Int                @id @default(autoincrement())
+  category     DiagnosticCategory
+  industry     IndustryType?
+  status       AuditStatus?
+  minScore     Int
+  maxScore     Int
+  conditionKey String?
+  message      String             @db.Text
+  color        MessageColor
+  createdAt    DateTime           @default(now())
 
   @@index([category])
   @@index([industry])
   @@index([status])
+}
+
+// ===============================
+// FACTIRAM — MODELOS NUEVOS
+// Agregar al FINAL del schema.prisma existente
+// No modificar nada de lo que ya está arriba
+// ===============================
+
+// ── ENUMS FACTIRAM ─────────────────────────────────────
+
+// ===============================
+// FACTIRAM — MODELOS NUEVOS
+// ===============================
+
+// ── ENUMS FACTIRAM ─────────────────────────────────────
+
+enum RolNegocio {
+  DUENO
+  CAJERO
+}
+
+enum TipoVenta {
+  EFECTIVO
+  FIADO
+}
+
+enum CategoriaGasto {
+  RENTA
+  LUZ_AGUA
+  INTERNET
+  SUELDOS
+  PUBLICIDAD
+  OTROS
+}
+
+enum EstadoAcceso {
+  TRIAL
+  VIGENTE
+  VENCIDO
+}
+
+// ── MODELOS FACTIRAM ────────────────────────────────────
+
+model Negocio {
+  id                 String   @id @default(uuid())
+  nombre             String
+  slugUrl            String   @unique
+  diasLaborales      Int      @default(26)
+  inversionMercancia Decimal  @default(0) @db.Decimal(12, 2)
+  activo             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  suscripcion Suscripcion?
+  usuarios    UsuarioNegocio[]
+  productos   Producto[]
+  costosFijos CostoFijo[]
+  ventasDia   VentaDia[]
+  cobros      CobroFiado[]
+
+  gastosDia GastoDia[]
+
+  @@index([slugUrl])
+}
+
+model Suscripcion {
+  id             String       @id @default(uuid())
+  negocioId      String       @unique
+  trialStartedAt DateTime     @default(now())
+  setupPagado    Boolean      @default(false)
+  proximoPagoAt  DateTime?
+  estadoMensual  EstadoAcceso @default(TRIAL)
+
+  // Preparado para pagos reales
+  stripeCustomerId String?
+  stripeSubId      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+}
+
+model UsuarioNegocio {
+  id        String     @id @default(uuid())
+  negocioId String
+  userId    String
+  rol       RolNegocio
+  createdAt DateTime   @default(now())
+
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([negocioId, userId])
+  @@index([negocioId])
+}
+
+model Producto {
+  id          String   @id @default(uuid())
+  negocioId   String
+  nombre      String
+  costoCompra Decimal  @db.Decimal(12, 2)
+  precioVenta Decimal  @db.Decimal(12, 2)
+  piezasDia   Decimal  @default(0) @db.Decimal(8, 2) // ← agregar esta línea
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  negocio Negocio    @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  ventas  VentaDia[]
+
+  @@index([negocioId])
+}
+
+model CostoFijo {
+  id        String         @id @default(uuid())
+  negocioId String
+  categoria CategoriaGasto
+  monto     Decimal        @db.Decimal(12, 2)
+  updatedAt DateTime       @updatedAt
+
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+
+  @@index([negocioId])
+}
+
+model VentaDia {
+  id         String @id @default(uuid())
+  negocioId  String
+  productoId String
+
+  cantidad       Int
+  tipo           TipoVenta
+  precioUnitario Decimal   @db.Decimal(12, 2)
+  total          Decimal   @db.Decimal(12, 2)
+  fecha          DateTime  @default(now())
+
+  negocio  Negocio  @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [productoId], references: [id])
+
+  cobros CobroFiado[]
+
+  @@index([negocioId, fecha])
+}
+
+model CobroFiado {
+  id              String   @id @default(uuid())
+  negocioId       String
+  ventaId         String
+  montoRecuperado Decimal  @db.Decimal(12, 2)
+  fechaCobro      DateTime @default(now())
+
+  negocio Negocio  @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+  venta   VentaDia @relation(fields: [ventaId], references: [id])
+
+  @@index([negocioId])
+  @@index([ventaId])
+}
+
+model GastoDia {
+  id          String   @id @default(cuid())
+  negocioId   String
+  monto       Decimal  @db.Decimal(10,2)
+  descripcion String?
+  fecha       DateTime @default(now())
+
+  negocio Negocio @relation(fields: [negocioId], references: [id])
 }

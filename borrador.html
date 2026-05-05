@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FACTIRAM - Control Real</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f3f4f6; color: #1f2937; }
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 16px; }
+        input[type="number"], input[type="text"] { 
+            border: 1px solid #d1d5db; padding: 10px; border-radius: 8px; width: 100%; margin-top: 4px; font-size: 16px; background: #f9fafb;
+        }
+        .btn-circle { width: 44px; height: 44px; border-radius: 50%; font-size: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; background: #e5e7eb; color: #374151; font-weight: bold;}
+        .btn-circle:hover { background: #d1d5db; }
+        .btn-primary { background: #2563eb; color: white; padding: 12px 20px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; border: none; font-size: 16px;}
+        .btn-outline { background: white; color: #374151; border: 2px solid #d1d5db; padding: 12px 20px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px;}
+        .progress-bar { background: #e5e7eb; border-radius: 10px; height: 12px; width: 100%; overflow: hidden; margin-top: 8px; }
+        .progress-fill { background: #3b82f6; height: 100%; transition: width 0.5s ease; }
+    </style>
+</head>
+<body class="p-4 md:p-6 max-w-lg mx-auto">
+
+    <!-- HEADER -->
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-extrabold text-blue-600 tracking-tight text-center">FACTIRAM</h1>
+        <p id="fechaHoy" class="text-gray-500 font-medium text-lg text-center"></p>
+    </div>
+
+    <!-- ESTADO DEL DÍA ALERTA -->
+    <div id="alertaDia" class="rounded-xl p-4 mb-4 text-center border-2 border-red-200 bg-red-50 text-red-700">
+        <h2 id="alertaTitulo" class="font-bold text-xl uppercase tracking-wide">Día en pérdida</h2>
+        <p id="alertaSubtitulo" class="mt-1 text-sm font-medium text-center">Te faltan piezas para no perder hoy.</p>
+    </div>
+
+    <!-- CONTADOR DIARIO -->
+    <div class="card text-center border-t-4 border-blue-500 relative overflow-hidden">
+        <p class="text-gray-500 font-medium mb-1 uppercase text-xs tracking-widest text-center">Meta para no perder hoy</p>
+        <p class="text-4xl font-black text-gray-800 text-center"><span id="metaDiaria">5</span> piezas</p>
+        
+        <div class="bg-red-50 border border-red-100 rounded-lg p-2 my-4">
+            <p class="text-red-600 font-bold text-sm text-center">🔥 Si hoy no vendes nada, pierdes <span id="perdidaDiaria" class="text-lg">-$154</span> de tu bolsa.</p>
+        </div>
+        
+        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+            <p class="text-gray-600 font-bold mb-3 uppercase tracking-wide text-xs text-center">Ya vendiste hoy</p>
+            <div class="flex items-center justify-center gap-6">
+                <button class="btn-circle shadow-sm" onclick="cambiarVentas(-1)">−</button>
+                <span id="ventasHoyUI" class="text-5xl font-black text-blue-600">0</span>
+                <button class="btn-circle shadow-sm bg-blue-100 text-blue-600" onclick="cambiarVentas(1)">+</button>
+            </div>
+            
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-2 text-center">¿Cuánto dinero cobraste en efectivo hoy?</p>
+                <div class="flex items-center justify-center gap-2">
+                    <span class="text-gray-400 font-bold">$</span>
+                    <input type="number" id="efectivoHoy" value="0" onchange="calcularTodo()" class="w-32 text-center font-bold text-green-600 border-none bg-transparent text-2xl">
+                </div>
+                <p class="text-[10px] text-gray-400 mt-1 italic text-center">Lo que falte se anotará como "Dinero que te deben".</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- RECUPERACIÓN DE MERCANCÍA -->
+    <div class="card bg-blue-600 text-white border-none">
+        <h2 class="text-sm font-bold uppercase tracking-wider opacity-80 text-center">Recuperación de Inversión</h2>
+        <div class="mt-2 text-center">
+            <label class="text-[10px] opacity-70">¿Cuánto invertiste en tu mercancía actual?</label>
+            <input type="number" id="inversionTotal" value="5000" onchange="calcularTodo()" class="bg-blue-700 border-none text-white font-bold py-1 mt-1 text-center">
+        </div>
+        <div class="progress-bar bg-blue-900 mt-4">
+            <div id="barraProgreso" class="progress-fill bg-green-400" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between mt-2 text-xs font-bold">
+            <span>Recuperado: $<span id="recuperadoValor">0</span></span>
+            <span>Faltan: $<span id="faltanteInversion">0</span></span>
+        </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div id="historialUI" class="hidden card bg-blue-50 border border-blue-200">
+        <h2 class="text-lg font-bold text-blue-800 border-b border-blue-200 pb-2 mb-3">📅 Historial (Mes Pasado)</h2>
+        <div class="grid grid-cols-2 gap-2 text-sm text-blue-900">
+            <div><span class="font-medium">Ganaste:</span> <strong id="histUtilidad" class="text-lg text-green-600"></strong></div>
+            <div><span class="font-medium">Vendiste:</span> <strong id="histVentas"></strong></div>
+            <div class="col-span-2 text-center"><span class="font-medium">Producto Estrella:</span> <strong id="histEstrella"></strong></div>
+        </div>
+    </div>
+
+    <!-- ¿CUÁNTO TE CUESTA EXISTIR MENSUALMENTE? -->
+    <div class="card">
+        <h2 class="text-xl font-bold mb-4 border-b pb-2 text-center italic">¿Cuánto te cuesta existir mensualmente?</h2>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="col-span-2 text-center">
+                <label class="text-xs font-bold text-gray-500 uppercase">Días que trabajas al mes</label>
+                <input type="number" id="diasLaborales" value="26" onchange="calcularTodo()" class="bg-blue-50 border-blue-200 font-bold text-blue-700 text-center">
+            </div>
+            <div><label class="text-xs font-bold text-gray-500 uppercase">Renta</label><input type="number" class="costo-fijo" value="2000" onchange="calcularTodo()"></div>
+            <div><label class="text-xs font-bold text-gray-500 uppercase">Luz / Agua</label><input type="number" class="costo-fijo" value="500" onchange="calcularTodo()"></div>
+            <div><label class="text-xs font-bold text-gray-500 uppercase">Internet</label><input type="number" class="costo-fijo" value="500" onchange="calcularTodo()"></div>
+            <div><label class="text-xs font-bold text-gray-500 uppercase">Sueldos</label><input type="number" class="costo-fijo" value="0" onchange="calcularTodo()"></div>
+            <div><label class="text-xs font-bold text-gray-500 uppercase">Publicidad</label><input type="number" class="costo-fijo" value="200" onchange="calcularTodo()"></div>
+            <div><label class="text-xs font-bold text-gray-500 uppercase">Otros</label><input type="number" class="costo-fijo" value="800" onchange="calcularTodo()"></div>
+        </div>
+        <div class="bg-gray-100 p-3 rounded-lg flex justify-between items-center">
+            <span class="text-sm font-bold text-gray-600">Gastas aunque no vendas</span>
+            <span class="font-extrabold text-lg text-gray-800">$<span id="totalFijos">0</span> / mes</span>
+        </div>
+    </div>
+
+    <!-- PRODUCTOS -->
+    <div class="card">
+        <h2 class="text-xl font-bold mb-4 border-b pb-2 text-center italic">Tus productos</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm" id="tablaProductos">
+                <thead>
+                    <tr class="text-gray-500 border-b">
+                        <th class="pb-2 font-medium">Nombre</th>
+                        <th class="pb-2 font-medium">Compras</th>
+                        <th class="pb-2 font-medium">Vendes</th>
+                        <th class="pb-2 font-medium">Pzas/día</th>
+                        <th class="pb-2 font-medium text-center">Ganas</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="listaProductos">
+                    <tr class="border-b product-row">
+                        <td class="py-2"><input type="text" class="w-20 text-xs p-1 font-bold" value="Ropa"></td>
+                        <td class="py-2"><input type="number" class="costo w-14 text-xs p-1" value="50" onchange="calcularTodo()"></td>
+                        <td class="py-2"><input type="number" class="precio w-14 text-xs p-1" value="120" onchange="calcularTodo()"></td>
+                        <td class="py-2"><input type="number" class="ventas w-14 text-xs p-1 bg-blue-50 text-center" value="4" onchange="calcularTodo()"></td>
+                        <td class="py-2 font-bold text-green-600 ganancia-texto text-center">$70</td>
+                        <td class="py-2 text-red-400 font-bold cursor-pointer text-center text-lg" onclick="eliminarFila(this)">×</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <button class="mt-4 text-blue-600 font-bold text-sm flex items-center text-center" onclick="agregarProducto()">+ Agregar producto</button>
+    </div>
+
+    <!-- ADVERTENCIA SILENCIOSA -->
+    <div id="advertenciaSilenciosa" class="hidden rounded-xl p-4 mb-4 text-center bg-red-600 text-white shadow-lg animate-pulse">
+        <h2 class="font-black text-xl uppercase tracking-wide text-center">⚠️ ALERTA CRÍTICA</h2>
+        <p class="mt-1 text-sm font-medium text-center">Con estos números tu negocio no va a durar. Estás perdiendo dinero.</p>
+    </div>
+
+    <!-- RESUMEN MENSUAL -->
+    <div class="card bg-gray-900 text-white border-none shadow-xl">
+        <h2 class="text-xl font-bold mb-4 border-b border-gray-700 pb-2 text-center italic">Tu realidad al mes</h2>
+        
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+                <p class="text-gray-400 text-xs uppercase text-center">Dinero que vas ganando</p>
+                <p id="utilidadNeta" class="text-2xl font-black text-green-400 text-center">$0</p>
+            </div>
+            <div>
+                <p class="text-gray-400 text-xs uppercase text-center">Lo que te deben (Fiado)</p>
+                <p id="dineroCalle" class="text-2xl font-black text-orange-400 text-center">$0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-6 border-t border-gray-800 pt-4">
+            <div class="text-center">
+                <p class="text-gray-400 text-xs uppercase tracking-wider mb-1">Mínimo para no perder</p>
+                <p class="text-xl font-bold text-white"><span id="puntoEquilibrio">0</span> pzas</p>
+            </div>
+            <div class="text-center">
+                <p class="text-gray-400 text-xs uppercase tracking-wider mb-1">Estás vendiendo</p>
+                <p class="text-xl font-bold text-white"><span id="ventasMes">0</span> pzas</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACCIONES Y BOTONES -->
+    <div class="card bg-blue-50 border border-blue-100">
+        <h2 class="text-xl font-bold mb-3 text-blue-800 text-center italic">¿Qué está pasando?</h2>
+        <ul class="list-disc pl-5 text-sm space-y-2 mb-6 text-blue-900">
+            <li>Tu producto estrella es <strong id="accionBuena" class="text-blue-600">...</strong>.</li>
+            <li>El que menos te deja es <strong id="accionMala" class="text-red-500">...</strong>.</li>
+        </ul>
+        
+        <div class="space-y-3">
+            <button class="btn-primary shadow-md text-center" onclick="alert('Tip: Asegúrate de cobrar lo que te deben hoy.')">¿Qué hago mañana?</button>
+            <div class="flex gap-3">
+                <button class="btn-outline bg-white text-xs text-center" onclick="cerrarMes()">Cerrar mes</button>
+                <button class="btn-outline bg-white text-xs text-center" onclick="window.print()">Descargar PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const opcionesFecha = { weekday: 'long', month: 'long', day: 'numeric' };
+        document.getElementById('fechaHoy').innerText = new Date().toLocaleDateString('es-ES', opcionesFecha);
+
+        let ventasHoy = 0;
+        let metaDiariaGlobal = 0;
+
+        function cambiarVentas(valor) {
+            ventasHoy += valor;
+            if(ventasHoy < 0) ventasHoy = 0;
+            actualizarContadorDiario();
+        }
+
+        function actualizarContadorDiario() {
+            document.getElementById('ventasHoyUI').innerText = ventasHoy;
+            let alerta = document.getElementById('alertaDia');
+            let titulo = document.getElementById('alertaTitulo');
+            let subtitulo = document.getElementById('alertaSubtitulo');
+            let faltan = metaDiariaGlobal - ventasHoy;
+
+            if (faltan > 0) {
+                alerta.className = "rounded-xl p-4 mb-4 text-center border-2 border-red-200 bg-red-50 text-red-700";
+                titulo.innerText = "Día en pérdida";
+                subtitulo.innerText = `Te faltan ${faltan} piezas para no perder hoy.`;
+            } else {
+                alerta.className = "rounded-xl p-4 mb-4 text-center border-2 border-green-300 bg-green-50 text-green-800";
+                titulo.innerText = "¡Día de Ganancia!";
+                subtitulo.innerText = `Llevas piezas extra. ¡Excelente!`;
+            }
+            calcularTodo();
+        }
+
+        function eliminarFila(btn) {
+            btn.parentNode.parentNode.remove();
+            calcularTodo();
+        }
+
+        function agregarProducto() {
+            let tbody = document.getElementById('listaProductos');
+            let tr = document.createElement('tr');
+            tr.className = "border-b product-row";
+            tr.innerHTML = `
+                <td class="py-2"><input type="text" class="w-20 text-xs p-1 font-bold" value="Nuevo"></td>
+                <td class="py-2"><input type="number" class="costo w-14 text-xs p-1" value="0" onchange="calcularTodo()"></td>
+                <td class="py-2"><input type="number" class="precio w-14 text-xs p-1" value="0" onchange="calcularTodo()"></td>
+                <td class="py-2"><input type="number" class="ventas w-14 text-xs p-1 bg-blue-50 text-center" value="0" onchange="calcularTodo()"></td>
+                <td class="py-2 font-bold text-gray-600 ganancia-texto text-center">$0</td>
+                <td class="py-2 text-red-400 font-bold cursor-pointer text-center text-lg" onclick="eliminarFila(this)">×</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function calcularTodo() {
+            let diasLaborales = Number(document.getElementById('diasLaborales').value) || 26;
+            let inputsFijos = document.querySelectorAll('.costo-fijo');
+            let fijos = 0;
+            inputsFijos.forEach(input => fijos += Number(input.value));
+            document.getElementById('totalFijos').innerText = fijos.toLocaleString('en-US');
+            document.getElementById('perdidaDiaria').innerText = "-$" + Math.ceil(fijos / diasLaborales);
+
+            let filas = document.querySelectorAll('.product-row');
+            let totalGananciaBrutaMes = 0;
+            let totalPiezasDia = 0;
+            let sumaGananciaPorVenta = 0;
+            let precioVentaTotal = 0;
+            let mejorG = -999; let peorP = 999999;
+            let mejorN = "..."; let peorN = "...";
+
+            filas.forEach(fila => {
+                let nombre = fila.querySelector('input[type="text"]').value;
+                let costo = Number(fila.querySelector('.costo').value);
+                let precio = Number(fila.querySelector('.precio').value);
+                let ventas = Number(fila.querySelector('.ventas').value);
+                
+                let gan = precio - costo;
+                fila.querySelector('.ganancia-texto').innerText = "$" + gan;
+                
+                totalPiezasDia += ventas;
+                sumaGananciaPorVenta += (gan * ventas);
+                totalGananciaBrutaMes += (gan * ventas * diasLaborales);
+                precioVentaTotal += (precio * ventas);
+
+                if(gan > mejorG && nombre !== "") { mejorG = gan; mejorN = nombre; }
+                if(gan < peorP && nombre !== "") { peorP = gan; peorN = nombre; }
+            });
+
+            let ganProm = totalPiezasDia > 0 ? (sumaGananciaPorVenta / totalPiezasDia) : 0;
+            let pEquilMes = ganProm > 0 ? Math.ceil(fijos / ganProm) : 0;
+            metaDiariaGlobal = Math.ceil(pEquilMes / diasLaborales);
+            document.getElementById('metaDiaria').innerText = metaDiariaGlobal;
+            
+            let utilFinal = totalGananciaBrutaMes - fijos;
+            document.getElementById('utilidadNeta').innerText = "$" + utilFinal.toLocaleString('en-US');
+            document.getElementById('utilidadNeta').className = utilFinal > 0 ? "text-2xl font-black text-green-400 text-center" : "text-2xl font-black text-red-400 text-center";
+            
+            document.getElementById('advertenciaSilenciosa').style.display = utilFinal < 0 ? 'block' : 'none';
+            document.getElementById('puntoEquilibrio').innerText = pEquilMes;
+            document.getElementById('ventasMes').innerText = totalPiezasDia * diasLaborales;
+
+            // Fiado vs Efectivo
+            let efectivoH = Number(document.getElementById('efectivoHoy').value);
+            let ventaEstH = totalPiezasDia > 0 ? (precioVentaTotal / totalPiezasDia) * ventasHoy : 0;
+            let fiadoH = Math.max(0, ventaEstH - efectivoH);
+            document.getElementById('dineroCalle').innerText = "$" + (fiadoH * diasLaborales).toLocaleString('en-US');
+
+            // Recuperación
+            let inv = Number(document.getElementById('inversionTotal').value);
+            let rec = Math.max(0, totalGananciaBrutaMes / 2.5); // Simulación
+            let porc = Math.min(100, (rec / inv) * 100);
+            document.getElementById('barraProgreso').style.width = porc + "%";
+            document.getElementById('recuperadoValor').innerText = Math.floor(rec).toLocaleString('en-US');
+            document.getElementById('faltanteInversion').innerText = Math.max(0, inv - Math.floor(rec)).toLocaleString('en-US');
+
+            document.getElementById('accionBuena').innerText = mejorN;
+            document.getElementById('accionMala').innerText = peorN;
+        }
+
+        function cerrarMes() {
+            if(confirm('¿Cerrar mes?')) {
+                document.getElementById('historialUI').classList.remove('hidden');
+                document.getElementById('histUtilidad').innerText = document.getElementById('utilidadNeta').innerText;
+                document.getElementById('histVentas').innerText = document.getElementById('ventasMes').innerText + " pzas";
+                document.getElementById('histEstrella').innerText = document.getElementById('accionBuena').innerText;
+                ventasHoy = 0; document.getElementById('efectivoHoy').value = 0;
+                actualizarContadorDiario();
+            }
+        }
+
+        window.onload = () => { calcularTodo(); actualizarContadorDiario(); };
+    </script>
+</body>
+</html>
