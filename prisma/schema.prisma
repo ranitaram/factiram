@@ -271,7 +271,8 @@ model Negocio {
   ventasDia   VentaDia[]
   cobros      CobroFiado[]
 
-  gastosDia GastoDia[]
+  gastosDia      GastoDia[]
+  efectivosCaja  EfectivoCaja[]
 
   @@index([slugUrl])
 }
@@ -297,15 +298,16 @@ model Suscripcion {
 model UsuarioNegocio {
   id        String     @id @default(uuid())
   negocioId String
-  userId    String
+  userId    String?
   rol       RolNegocio
+  clave     String?
   createdAt DateTime   @default(now())
 
   negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([negocioId, userId])
   @@index([negocioId])
+  @@index([negocioId, rol])
 }
 
 model Producto {
@@ -378,4 +380,18 @@ model GastoDia {
   fecha       DateTime @default(now())
 
   negocio Negocio @relation(fields: [negocioId], references: [id])
+}
+
+model EfectivoCaja {
+  id        String   @id @default(uuid())
+  negocioId String
+  fecha     DateTime @db.Date
+  monto     Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  negocio Negocio @relation(fields: [negocioId], references: [id], onDelete: Cascade)
+
+  @@unique([negocioId, fecha])
+  @@index([negocioId, fecha])
 }

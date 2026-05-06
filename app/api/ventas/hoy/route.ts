@@ -18,24 +18,36 @@ export async function GET(req: Request) {
     const inicio = startOfDay(ahora);
     const fin = endOfDay(ahora);
 
-    // 🔥 MISMO FILTRO QUE DELETE
-    const result = await prisma.ventaDia.aggregate({
-      _sum: {
-        cantidad: true,
-      },
+    const ventas = await prisma.ventaDia.findMany({
       where: {
         negocioId,
-        fecha: {
-          gte: inicio,
-          lte: fin,
-        },
+        fecha: { gte: inicio, lte: fin },
+      },
+      select: {
+        productoId: true,
+        cantidad: true,
+        tipo: true,
+        total: true,
       },
     });
 
-    const piezasVendidasHoy = result._sum.cantidad ?? 0;
+    let piezasVendidasHoy = 0;
+    let efectivoHoy = 0;
+    const ventasPorProducto: Record<string, number> = {};
+
+    for (const v of ventas) {
+      piezasVendidasHoy += v.cantidad;
+      ventasPorProducto[v.productoId] =
+        (ventasPorProducto[v.productoId] ?? 0) + v.cantidad;
+      if (v.tipo === "EFECTIVO") {
+        efectivoHoy += Number(v.total);
+      }
+    }
 
     return NextResponse.json({
       piezasVendidasHoy,
+      efectivoHoy,
+      ventasPorProducto,
     });
   } catch (error) {
     console.error("Error en GET /api/ventas/hoy:", error);

@@ -22,7 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es" className="scroll-smooth">
       <body className={inter.className}>
-        <SessionWrapper>
+        <SessionWrapper session={session}>
           {/* El Navbar ahora maneja el menú hamburguesa en móvil y los enlaces en desktop */}
           <Navbar session={session} />
 

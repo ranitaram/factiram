@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, BarChart3, ShieldCheck, Zap, Star, CheckCircle2, TrendingUp } from "lucide-react";
-import PricingTableEtapas from "@/components/PricingTableEtapas";
+import PricingTablePlanes from '@/components/PricingTablePlanes';
 
 export default function LandingPage() {
   return (
@@ -108,7 +108,7 @@ export default function LandingPage() {
       </section>
 
       {/* 5. ETAPAS */}
-      <PricingTableEtapas/>
+      <PricingTablePlanes/>
 
       {/* 6. FAQ */}
       <section className="max-w-3xl mx-auto px-6">

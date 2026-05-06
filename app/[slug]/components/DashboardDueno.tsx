@@ -8,10 +8,38 @@ import {
   type ProductoInput,
 } from "@/lib/factiram-engine";
 
+// ── Categorías de costos — orden canónico, siempre las 6 ──
+const CATEGORIAS_GASTO = [
+  { key: "RENTA",      label: "RENTA" },
+  { key: "LUZ_AGUA",   label: "LUZ / AGUA" },
+  { key: "INTERNET",   label: "INTERNET" },
+  { key: "SUELDOS",    label: "SUELDOS" },
+  { key: "PUBLICIDAD", label: "PUBLICIDAD" },
+  { key: "OTROS",      label: "OTROS" },
+] as const;
+
+type CostoEditable = { categoria: string; monto: number };
+type SaveState = "idle" | "saving" | "ok" | "error";
+
+// Semáforo basado en margen sobre precio de venta
+function getSemaforo(costoCompra: number, precioVenta: number): "BUENO" | "REGULAR" | "MALO" {
+  if (precioVenta <= 0 || costoCompra >= precioVenta) return "MALO";
+  const margen = (precioVenta - costoCompra) / precioVenta;
+  if (margen >= 0.30) return "BUENO";
+  if (margen >= 0.15) return "REGULAR";
+  return "MALO";
+}
+
+const SEMAFORO = {
+  BUENO:   { dot: "bg-green-500",  texto: "text-green-700",  bg: "bg-green-50",  label: "Bueno" },
+  REGULAR: { dot: "bg-yellow-400", texto: "text-yellow-700", bg: "bg-yellow-50", label: "Regular" },
+  MALO:    { dot: "bg-red-500",    texto: "text-red-700",    bg: "bg-red-50",    label: "Malo" },
+};
+
 type Props = {
   negocioId: string;
   negocioNombre: string;
-  esTrial: boolean;
+  esTrial?: boolean;
   data: {
     productos: ProductoInput[];
     costosFijos: FactiramInput["costosFijos"];
@@ -20,184 +48,488 @@ type Props = {
   };
 };
 
-export default function DashboardDueno({
-  negocioId,
-  negocioNombre,
-  esTrial,
-  data,
-}: Props) {
+export default function DashboardDueno({ negocioId, negocioNombre, data }: Props) {
+  // ── Datos del día (vienen del API — polling) ─────────────
   const [piezasVendidasHoy, setPiezasVendidasHoy] = useState(0);
   const [efectivoHoy, setEfectivoHoy] = useState(0);
   const [gastosHoy, setGastosHoy] = useState(0);
+
+  // ── Configuración editable ───────────────────────────────
   const [productos, setProductos] = useState<ProductoInput[]>(data.productos);
+
+  // Inicializar costos por categoría — garantiza las 6 presentes en orden
+  const costosPorCat: Record<string, number> = Object.fromEntries(
+    data.costosFijos.map((c) => [c.categoria, c.monto])
+  );
+  const [costosFijos, setCostosFijos] = useState<CostoEditable[]>(
+    CATEGORIAS_GASTO.map((cat) => ({
+      categoria: cat.key,
+      monto: costosPorCat[cat.key] ?? 0,
+    }))
+  );
+
+  const [diasLaborales, setDiasLaborales] = useState(data.diasLaborales);
+  const [inversionMercancia] = useState(data.inversionMercancia);
   const [horaActual, setHoraActual] = useState(new Date().getHours());
 
-  // ── FETCH ──
-  const fetchVentas = useCallback(async () => {
-    const res = await fetch(`/api/ventas/hoy?negocioId=${negocioId}`);
-    const json = await res.json();
-    setPiezasVendidasHoy(json.piezasVendidasHoy ?? 0);
-  }, [negocioId]);
+  // ── Estado de guardado ───────────────────────────────────
+  const [costosSave, setCostosSave] = useState<SaveState>("idle");
+  const [productosSave, setProductosSave] = useState<SaveState>("idle");
 
-  const fetchGastos = useCallback(async () => {
-    const res = await fetch(`/api/gastos/hoy?negocioId=${negocioId}`);
-    const json = await res.json();
-    setGastosHoy(json.total ?? 0);
-    setEfectivoHoy(json.efectivo ?? 0);
+  // ── Polling unificado cada 60s, solo si la pestaña está visible ──
+  const fetchResumen = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/dashboard/resumen?negocioId=${negocioId}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      setPiezasVendidasHoy(json.piezasVendidas ?? 0);
+      setEfectivoHoy(Number(json.efectivoHoy ?? 0));
+      setGastosHoy(Number(json.gastosHoy ?? 0));
+    } catch (e) {
+      console.error("Error al leer resumen", e);
+    }
   }, [negocioId]);
 
   useEffect(() => {
-    fetchVentas();
-    fetchGastos();
+    fetchResumen();
 
-    const interval = setInterval(() => {
-      fetchVentas();
-      fetchGastos();
-    }, 30000);
+    const pollInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchResumen();
+      }
+    }, 60000);
 
-    return () => clearInterval(interval);
-  }, [fetchVentas, fetchGastos]);
+    const horaInterval = setInterval(() => {
+      setHoraActual(new Date().getHours());
+    }, 60000);
 
-  // ── MOTOR ──
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(horaInterval);
+    };
+  }, [fetchResumen]);
+
+  // ── Motor financiero (única fuente de cálculo) ───────────
   const input: FactiramInput = {
     productos,
-    costosFijos: data.costosFijos,
-    diasLaborales: data.diasLaborales,
+    costosFijos,
+    diasLaborales,
     piezasVendidasHoy,
     efectivoHoy,
-    inversionMercancia: data.inversionMercancia,
+    inversionMercancia,
     gastosHoy,
   };
 
   const r = calcularFactiram(input);
   const prediccion = calcularPrediccion(input, horaActual);
 
-  const utilidadRealHoy =
-    r.flujoRealHoy - r.totalCostosFijos / data.diasLaborales;
+  const costoPorDia = r.totalCostosFijos / (diasLaborales || 26);
+  const utilidadRealHoy = r.flujoRealHoy - costoPorDia;
 
-  // ── PRODUCTOS ──
-  function actualizarProducto(
-    idx: number,
-    campo: keyof ProductoInput,
-    valor: string | number
-  ) {
-    setProductos((prev) =>
-      prev.map((p, i) => (i === idx ? { ...p, [campo]: valor } : p))
-    );
+  // ── Diagnóstico mensual ──────────────────────────────────
+  let diagnostico = "";
+  let accion = "";
+  if (r.utilidadMes < 0) {
+    diagnostico = "Tu negocio está en riesgo";
+    accion = "Necesitas vender más o bajar costos";
+  } else if (productos.length === 1) {
+    diagnostico = "Dependes de un solo producto";
+    accion = "Diversifica antes de que sea un problema";
+  } else {
+    diagnostico = "Tu negocio es rentable";
+    accion = `Empuja más "${r.productoEstrella}"`;
   }
 
-  function agregarProducto() {
-    setProductos((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        nombre: "Nuevo",
-        costoCompra: 0,
-        precioVenta: 0,
-        piezasDia: 0,
-      },
-    ]);
+  // ── Handlers de configuración ────────────────────────────
+  function actualizarProducto(idx: number, campo: keyof ProductoInput, valor: string | number) {
+    setProductos((prev) => prev.map((p, i) => (i === idx ? { ...p, [campo]: valor } : p)));
+    setProductosSave("idle");
   }
 
-  function eliminarProducto(idx: number) {
-    setProductos((prev) => prev.filter((_, i) => i !== idx));
+  async function agregarProducto() {
+    try {
+      const res = await fetch("/api/config/productos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioId }),
+      });
+      if (!res.ok) throw new Error();
+      const nuevo = await res.json();
+      setProductos((prev) => [...prev, nuevo]);
+    } catch (e) {
+      console.error("Error al crear producto", e);
+    }
   }
 
-  // ── UI ──
+  async function eliminarProducto(idx: number) {
+    if (!confirm("¿Seguro que quieres eliminar este producto?")) return;
+    const p = productos[idx];
+    try {
+      await fetch(`/api/config/productos?productoId=${p.id}&negocioId=${negocioId}`, {
+        method: "DELETE",
+      });
+      setProductos((prev) => prev.filter((_, i) => i !== idx));
+    } catch (e) {
+      console.error("Error al eliminar producto", e);
+    }
+  }
+
+  function actualizarCosto(idx: number, monto: number) {
+    setCostosFijos((prev) => prev.map((c, i) => (i === idx ? { ...c, monto } : c)));
+    setCostosSave("idle");
+  }
+
+  async function guardarCostos() {
+    setCostosSave("saving");
+    try {
+      const res = await fetch("/api/config/costos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioId, costos: costosFijos }),
+      });
+      if (!res.ok) throw new Error();
+      setCostosSave("ok");
+      setTimeout(() => setCostosSave("idle"), 2500);
+    } catch {
+      setCostosSave("error");
+    }
+  }
+
+  async function guardarProductos() {
+    setProductosSave("saving");
+    try {
+      const res = await fetch("/api/config/productos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioId, productos }),
+      });
+      if (!res.ok) throw new Error();
+      setProductosSave("ok");
+      setTimeout(() => setProductosSave("idle"), 2500);
+    } catch {
+      setProductosSave("error");
+    }
+  }
+
+  function cerrarMes() {
+    if (!confirm("¿Cerrar el mes? Esta acción reiniciará los contadores del día.")) return;
+    setPiezasVendidasHoy(0);
+    setEfectivoHoy(0);
+    setGastosHoy(0);
+  }
+
+  const btnGuardar = (state: SaveState, onSave: () => void) => (
+    <button
+      onClick={onSave}
+      disabled={state === "saving"}
+      className={`w-full py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 ${
+        state === "ok"    ? "bg-green-100 text-green-700" :
+        state === "error" ? "bg-red-100 text-red-700 cursor-pointer" :
+                            "bg-blue-600 text-white active:bg-blue-700"
+      }`}
+    >
+      {state === "saving" ? "Guardando..." :
+       state === "ok"     ? "✓ Guardado" :
+       state === "error"  ? "Error — intentar de nuevo" :
+                            "Guardar cambios"}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4 max-w-md mx-auto">
+    <div className="min-h-screen bg-gray-100 p-4 max-w-md mx-auto pb-10">
 
       {/* HEADER */}
-      <div className="mb-6 text-center">
+      <div className="text-center mb-4">
         <h1 className="text-2xl font-black text-blue-600">FACTIRAM</h1>
-        <p className="text-gray-500">{negocioNombre}</p>
+        <p className="text-gray-500 text-sm">{negocioNombre}</p>
       </div>
 
-      {/* REALIDAD */}
-      <div className={`p-5 rounded-2xl mb-4 text-center shadow ${
-        utilidadRealHoy >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+      {/* ALERTA DEL DÍA */}
+      <div className={`p-3 rounded-xl mb-4 text-center font-bold text-white ${
+        utilidadRealHoy >= 0 ? "bg-green-600" : "bg-red-600"
       }`}>
-        <p className="text-xs uppercase font-bold mb-1">Hoy</p>
-        <p className="text-4xl font-black">
-          ${Math.round(utilidadRealHoy)}
+        {utilidadRealHoy < 0
+          ? `Si repites este ritmo mañana, perderás $${Math.abs(Math.round(utilidadRealHoy)).toLocaleString("es-MX")}`
+          : "Buen ritmo hoy, sigue así"}
+      </div>
+
+      {/* REALIDAD DEL DÍA */}
+      <div className={`p-5 rounded-2xl mb-4 text-center ${
+        utilidadRealHoy >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+      }`}>
+        <p className="font-bold text-lg">
+          {utilidadRealHoy >= 0 ? "Día en ganancia" : "Día en pérdida"}
         </p>
-        <p className="text-sm">
-          {utilidadRealHoy >= 0 ? "Vas ganando dinero" : "Estás perdiendo dinero"}
+        <p className="text-sm mt-1">
+          {utilidadRealHoy >= 0
+            ? `Ganando $${Math.round(utilidadRealHoy).toLocaleString("es-MX")} hoy`
+            : `Te faltan $${Math.abs(Math.round(utilidadRealHoy)).toLocaleString("es-MX")} para estar en ganancia`}
+        </p>
+        <p className="text-xs mt-2 opacity-60">
+          {piezasVendidasHoy} vendidas · Meta: {r.metaDiaria} piezas
         </p>
       </div>
 
       {/* PREDICCIÓN */}
-      <div className="bg-white p-4 rounded-xl mb-4 border">
-        <p className="text-xs text-gray-500 text-center mb-1">
-          Si sigues así
+      <div className={`p-4 rounded-xl mb-4 text-center border-2 ${
+        prediccion.nivelAlerta === "BIEN"   ? "border-green-300 bg-green-50 text-green-800" :
+        prediccion.nivelAlerta === "RIESGO" ? "border-yellow-300 bg-yellow-50 text-yellow-800" :
+                                              "border-red-200 bg-red-50 text-red-700"
+      }`}>
+        <p className="text-xs uppercase font-bold tracking-widest mb-1">
+          Si sigues así, hoy terminarás en
         </p>
-        <p className="text-2xl font-bold text-center">
-          ${Math.round(prediccion.proyeccionFlujo)}
+        <p className="text-3xl font-black">
+          ${Math.round(prediccion.proyeccionFlujo).toLocaleString("es-MX")}
         </p>
-        <p className="text-center text-sm mt-2 text-gray-600">
-          {prediccion.mensajeAlerta}
+        <p className="text-xs opacity-60 mt-1">
+          ({prediccion.proyeccionPiezas} piezas proyectadas)
+        </p>
+        <p className="text-sm font-medium mt-2">{prediccion.mensajeAlerta}</p>
+      </div>
+
+      {/* EFECTIVO COBRADO (registrado por el cajero, sincronizado en vivo) */}
+      <div className="bg-white p-4 rounded-xl mb-4 text-center shadow-sm">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
+          Cuánto cobraste hoy
+        </p>
+        <p className="font-black text-green-600 text-3xl">
+          ${efectivoHoy.toLocaleString("es-MX")}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-1">
+          Reportado por el cajero · se actualiza en vivo
+        </p>
+        {r.dineroCalle > 0 && (
+          <p className="text-xs text-orange-500 mt-2 font-medium">
+            Dinero en la calle (fiado): ${Math.round(r.dineroCalle).toLocaleString("es-MX")}
+          </p>
+        )}
+        <p className="text-xs text-gray-400 mt-1">
+          Gastos del día: ${gastosHoy.toLocaleString("es-MX")}
         </p>
       </div>
 
-      {/* PRODUCTOS */}
-      <div className="bg-white rounded-xl p-4 shadow">
-        <h2 className="font-bold mb-3">Productos</h2>
+      {/* COSTOS FIJOS */}
+      <div className="bg-white p-6 rounded-3xl mb-4 shadow-sm">
+        <h2 className="text-xl font-bold italic text-center text-slate-800 mb-6">
+          ¿Cuánto te cuesta existir mensualmente?
+        </h2>
 
-        <div className="space-y-2">
+        <div className="border-t border-gray-100 pt-6 mb-6">
+          <label className="block text-[10px] font-bold text-gray-400 text-center mb-2 tracking-widest">
+            DÍAS QUE TRABAJAS AL MES
+          </label>
+          <div className="flex justify-center">
+            <input
+              type="number"
+              value={diasLaborales}
+              onChange={(e) => setDiasLaborales(Number(e.target.value))}
+              className="w-full max-w-xs text-center py-2 text-blue-600 font-bold text-xl border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 mb-6">
+          {CATEGORIAS_GASTO.map((cat, i) => (
+            <div key={cat.key}>
+              <label className="block text-[10px] font-bold text-gray-400 mb-1 tracking-wider">
+                {cat.label}
+              </label>
+              <input
+                type="number"
+                value={costosFijos[i].monto}
+                onChange={(e) => actualizarCosto(i, Number(e.target.value))}
+                className="w-full p-3 border border-gray-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:border-blue-200 transition-colors"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-slate-50 rounded-2xl p-4 flex justify-between items-center mb-4">
+          <span className="text-slate-500 font-bold text-sm">Gastas aunque no vendas</span>
+          <span className="text-slate-800 font-black text-lg">
+            ${r.totalCostosFijos.toLocaleString("es-MX")} / mes
+          </span>
+        </div>
+
+        {btnGuardar(costosSave, guardarCostos)}
+      </div>
+
+      {/* CUÁNDO EMPIEZAS A GANAR DE VERDAD */}
+      <div className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+        <p className="font-bold mb-3 text-gray-700 text-sm">Cuándo empiezas a ganar de verdad</p>
+        <div className="bg-gray-200 h-3 rounded-full mb-3 overflow-hidden">
+          <div
+            className="bg-green-500 h-full rounded-full transition-all duration-500"
+            style={{ width: `${Math.min(100, r.recuperacion.porcentaje)}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-gray-600">
+          <span>Recuperado: ${Math.round(r.recuperacion.recuperado).toLocaleString("es-MX")}</span>
+          <span className="font-black text-gray-800">{Math.round(r.recuperacion.porcentaje)}%</span>
+          <span>Faltan: ${Math.round(r.recuperacion.faltante).toLocaleString("es-MX")}</span>
+        </div>
+      </div>
+
+      {/* DINERO QUE VAS GANANDO */}
+      <div className="bg-black text-white p-5 rounded-2xl mb-4 text-center">
+        <p className="text-xs uppercase tracking-widest opacity-60 mb-1">
+          Dinero que vas ganando al mes
+        </p>
+        <p className={`text-3xl font-black ${r.utilidadMes >= 0 ? "text-green-400" : "text-red-400"}`}>
+          ${Math.round(r.utilidadMes).toLocaleString("es-MX")}
+        </p>
+        <p className="text-[10px] opacity-40 mt-1">
+          basado en el promedio diario de tus productos
+        </p>
+
+        <div className="grid grid-cols-2 mt-4 gap-2 text-sm">
+          <div className="bg-white/10 rounded-xl p-3">
+            <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">
+              Mínimo al mes para no perder
+            </p>
+            <p className="font-bold">{r.puntoEquilibrio} pzas</p>
+          </div>
+          <div className="bg-white/10 rounded-xl p-3">
+            <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">
+              Proyección mensual
+            </p>
+            <p className="font-bold">{Math.round(r.ventasMes)} pzas</p>
+          </div>
+        </div>
+
+        {r.negocioEnPerdida && (
+          <p className="mt-4 text-red-400 text-sm font-bold">
+            Con estos números tu negocio pierde dinero cada mes.
+          </p>
+        )}
+
+        <p className="mt-3 text-sm opacity-80">{diagnostico}</p>
+        <p className="text-xs opacity-50 mt-1">{accion}</p>
+      </div>
+
+      {/* TUS PRODUCTOS */}
+      <div className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+        <h2 className="font-bold mb-4 text-center text-gray-700">Tus productos</h2>
+
+        <div className="space-y-3">
           {productos.map((p, i) => {
-            const ganancia = p.precioVenta - p.costoCompra;
+            const s = getSemaforo(p.costoCompra, p.precioVenta);
+            const col = SEMAFORO[s];
+            const gananciaPieza = Number(p.precioVenta) - Number(p.costoCompra);
 
             return (
-              <div key={p.id} className="grid grid-cols-5 gap-2 items-center">
-
-                <input
-                  className="col-span-2 border rounded p-1 text-sm"
-                  value={p.nombre}
-                  onChange={(e) =>
-                    actualizarProducto(i, "nombre", e.target.value)
-                  }
-                />
-
-                <input
-                  className="border rounded p-1 text-sm text-center"
-                  type="number"
-                  value={p.costoCompra}
-                  onChange={(e) =>
-                    actualizarProducto(i, "costoCompra", Number(e.target.value))
-                  }
-                />
-
-                <input
-                  className="border rounded p-1 text-sm text-center"
-                  type="number"
-                  value={p.precioVenta}
-                  onChange={(e) =>
-                    actualizarProducto(i, "precioVenta", Number(e.target.value))
-                  }
-                />
-
-                <div className="text-center text-xs font-bold text-green-600">
-                  +{ganancia}
+              <div key={p.id} className="border border-gray-200 rounded-xl p-3">
+                {/* Fila: semáforo + nombre + eliminar */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${col.dot}`} />
+                  <input
+                    value={p.nombre}
+                    onChange={(e) => actualizarProducto(i, "nombre", e.target.value)}
+                    className="flex-1 font-bold text-sm border-b border-transparent focus:border-gray-300 focus:outline-none bg-transparent"
+                    placeholder="Nombre del producto"
+                  />
+                  <button
+                    onClick={() => eliminarProducto(i)}
+                    className="text-gray-300 hover:text-red-500 text-xl leading-none ml-1"
+                  >
+                    ×
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => eliminarProducto(i)}
-                  className="text-red-500 font-bold"
-                >
-                  ×
-                </button>
+                {/* Te cuesta / Lo vendes en */}
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                      Te cuesta
+                    </p>
+                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                      <span className="px-2 text-gray-400 text-xs bg-gray-50 self-stretch flex items-center">$</span>
+                      <input
+                        type="number"
+                        value={p.costoCompra}
+                        onChange={(e) => actualizarProducto(i, "costoCompra", Number(e.target.value))}
+                        className="flex-1 p-2 text-sm font-medium focus:outline-none min-w-0"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                      Lo vendes en
+                    </p>
+                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                      <span className="px-2 text-gray-400 text-xs bg-gray-50 self-stretch flex items-center">$</span>
+                      <input
+                        type="number"
+                        value={p.precioVenta}
+                        onChange={(e) => actualizarProducto(i, "precioVenta", Number(e.target.value))}
+                        className="flex-1 p-2 text-sm font-medium focus:outline-none min-w-0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lo que te deja / Piezas al día */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`rounded-lg p-2 text-center ${col.bg}`}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">
+                      Lo que te deja
+                    </p>
+                    <p className={`font-black text-sm ${col.texto}`}>
+                      ${gananciaPieza > 0
+                        ? gananciaPieza.toLocaleString("es-MX", { maximumFractionDigits: 2 })
+                        : "0"} / pieza
+                    </p>
+                    <p className={`text-[10px] ${col.texto} opacity-70`}>{col.label}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                      Promedio al día
+                    </p>
+                    <input
+                      type="number"
+                      value={p.piezasDia}
+                      onChange={(e) => actualizarProducto(i, "piezasDia", Number(e.target.value))}
+                      className="w-full p-2 text-sm font-bold border border-gray-200 rounded-lg focus:outline-none text-center"
+                    />
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
 
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={agregarProducto}
+            className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors"
+          >
+            + Agregar
+          </button>
+          <div className="flex-1">
+            {btnGuardar(productosSave, guardarProductos)}
+          </div>
+        </div>
+      </div>
+
+      {/* ACCIONES */}
+      <div className="flex gap-2">
         <button
-          onClick={agregarProducto}
-          className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg font-bold"
+          onClick={cerrarMes}
+          className="flex-1 bg-gray-800 text-white py-2 rounded-xl font-bold text-sm"
         >
-          + Agregar producto
+          Cerrar mes
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-xl font-bold text-sm"
+        >
+          PDF
         </button>
       </div>
+
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import PricingTable from "@/components/PricingTable";
 import PricingTableEtapas from "@/components/PricingTableEtapas";
+import PricingTablePlanes from "@/components/PricingTablePlanes";
 import { motion } from "framer-motion";
 import { ShieldCheck, MessageSquare, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
@@ -47,6 +48,7 @@ export default function PlanesPage() {
       {/* --- TABLA DE PRECIOS --- */}
       {/* El margen negativo -mt-24 hace que la tabla se encime un poco en el hero, viéndose muy moderno */}
       <div className="-mt-24 relative z-20 pb-20">
+        <PricingTablePlanes/>
         <PricingTableEtapas/>
         <PricingTable /> 
            

@@ -262,45 +262,58 @@ export function calcularPrediccion(
     ? sumaGananciaPonderada.div(totalPiezasDia).toNumber()
     : 0;
 
-  // Horas hábiles asumidas: 9am a 8pm = 11 horas
   const HORA_INICIO = 9;
   const HORA_CIERRE = 20;
-  const horasTranscurridas = Math.max(1, horaActual - HORA_INICIO);
+  const horasTotales = HORA_CIERRE - HORA_INICIO; // 11 horas
+
+  // Limitar al rango de la jornada laboral
+  const horasTranscurridas = Math.max(0.5, Math.min(horasTotales, horaActual - HORA_INICIO));
   const horasRestantes = Math.max(0, HORA_CIERRE - horaActual);
-  const horasTotales = HORA_CIERRE - HORA_INICIO;
 
-  // Ritmo actual: piezas por hora
-  const ritmoActual = piezasVendidasHoy / horasTranscurridas;
-
-  // Proyección al cierre
-  const proyeccionPiezas = Math.round(
-    piezasVendidasHoy + ritmoActual * horasRestantes
-  );
-
-  // Flujo proyectado
-  const precioPromedio = totalPiezasDia.gt(0)
-    ? productos.reduce((acc, p) => {
-        return acc + p.precioVenta * p.piezasDia;
-      }, 0) / totalPiezasDia.toNumber()
-    : 0;
-
-  const efectivoProyectado = efectivoHoy > 0
-    ? (efectivoHoy / horasTranscurridas) * horasTotales
-    : proyeccionPiezas * precioPromedio * 0.8; // asume 80% cobrado en efectivo
-
-  const proyeccionFlujo = efectivoProyectado - gastosHoy - costosPorDia;
-
-  // Mensaje y nivel
+  // Meta diaria mínima para cubrir costos
   const metaDiaria = gananciaPonderada > 0
     ? Math.ceil(costosPorDia / gananciaPonderada)
     : 0;
 
-  const porcentajeAvance = metaDiaria > 0
-    ? (piezasVendidasHoy / metaDiaria) * 100
+  // ── Proyección con suavizado por confianza ─────────────────
+  // Problema sin suavizado: a las 10am (1h trabajada, 10h restantes),
+  // vender 1 pieza da ritmoActual=1, proyección=1+1×10=11 (10x amplificación).
+  // Con confianza progresiva: en las primeras horas se blend con el ritmo
+  // esperado según la meta, eliminando la amplificación artificial.
+
+  // Ritmo que necesitas para llegar a la meta (base estable)
+  const ritmoEsperado = horasTotales > 0 ? metaDiaria / horasTotales : 0;
+
+  // Ritmo real observado hasta ahora
+  const ritmoReal = piezasVendidasHoy / horasTranscurridas;
+
+  // Confianza en el ritmo real: sube progresivamente a lo largo de las primeras 3 horas.
+  // Con < 1h de datos usamos casi solo el ritmo esperado; con 3h+ confiamos en el real.
+  const confianza = Math.min(1, horasTranscurridas / 3);
+
+  const ritmoBlended = ritmoEsperado * (1 - confianza) + ritmoReal * confianza;
+
+  const proyeccionPiezas = Math.max(
+    piezasVendidasHoy,
+    Math.round(piezasVendidasHoy + ritmoBlended * horasRestantes)
+  );
+
+  // ── Flujo proyectado ────────────────────────────────────────
+  const precioPromedio = totalPiezasDia.gt(0)
+    ? productos.reduce((acc, p) => acc + p.precioVenta * p.piezasDia, 0) / totalPiezasDia.toNumber()
     : 0;
 
-  // Progreso esperado según hora
-  const progresoEsperado = ((horasTranscurridas / horasTotales) * 100);
+  // Si el cajero ya ingresó efectivo real: extrapolar desde ese dato concreto.
+  // Si no: proyectar desde las piezas esperadas (asumiendo 80% cobro en efectivo).
+  const efectivoProyectado = efectivoHoy > 0
+    ? (efectivoHoy / horasTranscurridas) * horasTotales
+    : proyeccionPiezas * precioPromedio * 0.8;
+
+  const proyeccionFlujo = efectivoProyectado - gastosHoy - costosPorDia;
+
+  // ── Nivel de alerta ─────────────────────────────────────────
+  const porcentajeAvance = metaDiaria > 0 ? (piezasVendidasHoy / metaDiaria) * 100 : 100;
+  const progresoEsperado = (horasTranscurridas / horasTotales) * 100;
 
   let nivelAlerta: "BIEN" | "RIESGO" | "MAL";
   let mensajeAlerta: string;
