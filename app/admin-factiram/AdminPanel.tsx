@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Lee la respuesta de forma segura: comprueba res.ok antes de parsear
 // y maneja respuestas no-JSON (HTML de error, vacío, etc.) sin romper la UI.
@@ -40,43 +40,87 @@ type Negocio = {
   claveCajero: string | null;
 };
 
+type ListaResponse = {
+  negocios: Negocio[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+};
+
 const semaforoColor = {
   VERDE: "bg-green-500",
   AMARILLO: "bg-yellow-400",
   ROJO: "bg-red-500",
 };
 
+const PAGE_SIZE = 10;
+
 export default function AdminPanel() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [cargando, setCargando] = useState(true);
+
   const [crearAbierto, setCrearAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [slug, setSlug] = useState("");
   const [creando, setCreando] = useState(false);
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
   const [recienCreado, setRecienCreado] = useState<Negocio | null>(null);
-  // Guard inmediato — `setCreando(true)` no se aplica antes del próximo render,
-  // así que un ref evita que un doble-click dispare dos POST en la misma tick.
   const enviandoRef = useRef(false);
 
-  const cargar = useCallback(async () => {
+  // ── Debounce del buscador (~400ms) ─────────────────────
+  // Evita disparar fetch en cada tecla. Cuando el usuario escribe, sólo
+  // tras 400ms sin cambios se actualiza `search`, lo que dispara el fetch.
+  // También resetea a la página 1 al cambiar la búsqueda.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // ── Fetch único: depende de `page` y `search` ─────────
+  const cargar = useCallback(async (signal?: AbortSignal) => {
     setCargando(true);
     try {
-      const res = await fetch("/api/admin/negocios", { cache: "no-store" });
-      const { ok, data, error } = await leerJsonSeguro<{ negocios: Negocio[] }>(res);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/admin/negocios?${params.toString()}`, {
+        cache: "no-store",
+        signal,
+      });
+      const { ok, data, error } = await leerJsonSeguro<ListaResponse>(res);
       if (!ok || !data) {
         console.error("Error al listar negocios:", error);
         setNegocios([]);
+        setTotal(0);
+        setTotalPages(1);
         return;
       }
       setNegocios(data.negocios ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return;
+      console.error("Error de red al listar:", e);
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [page, search]);
 
   useEffect(() => {
-    cargar();
+    const ctl = new AbortController();
+    cargar(ctl.signal);
+    return () => ctl.abort();
   }, [cargar]);
 
   async function logout() {
@@ -126,6 +170,10 @@ export default function AdminPanel() {
       setNombre("");
       setSlug("");
       setCrearAbierto(false);
+      // Volver a la primera página y limpiar búsqueda para que aparezca arriba
+      setSearchInput("");
+      setSearch("");
+      setPage(1);
       await cargar();
     } catch {
       setErrorCrear("Error de conexión");
@@ -159,6 +207,14 @@ export default function AdminPanel() {
     }
   }
 
+  const baseUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return window.location.origin;
+  }, []);
+
+  const desde = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const hasta = Math.min(page * PAGE_SIZE, total);
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 max-w-3xl mx-auto pb-12">
       <div className="flex items-center justify-between mb-6">
@@ -180,9 +236,9 @@ export default function AdminPanel() {
             ✓ Negocio creado: {recienCreado.nombre}
           </p>
           <div className="space-y-2 text-sm">
-            <CredencialRow label="Link cajero" value={origin() + recienCreado.linkCajero} />
+            <CredencialRow label="Link cajero" value={baseUrl + recienCreado.linkCajero} />
             <CredencialRow label="Clave cajero" value={recienCreado.claveCajero ?? "—"} />
-            <CredencialRow label="Link dueño" value={origin() + recienCreado.linkDueno} />
+            <CredencialRow label="Link dueño" value={baseUrl + recienCreado.linkDueno} />
             <CredencialRow label="Clave dueño" value={recienCreado.claveDueno ?? "—"} />
           </div>
           <button
@@ -238,80 +294,140 @@ export default function AdminPanel() {
         </form>
       )}
 
+      {/* BUSCADOR */}
+      <div className="mb-4">
+        <input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Buscar por nombre o slug…"
+          className="w-full p-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:border-blue-300"
+        />
+        {search && (
+          <p className="text-xs text-gray-400 mt-1">
+            Buscando: <span className="font-bold">{search}</span>
+            {" · "}
+            <button
+              onClick={() => setSearchInput("")}
+              className="text-blue-600 hover:underline"
+            >
+              limpiar
+            </button>
+          </p>
+        )}
+      </div>
+
       {cargando ? (
         <p className="text-center text-gray-500 py-8">Cargando…</p>
       ) : negocios.length === 0 ? (
-        <p className="text-center text-gray-500 py-8">No hay negocios todavía.</p>
+        <p className="text-center text-gray-500 py-8">
+          {search ? `Sin resultados para "${search}".` : "No hay negocios todavía."}
+        </p>
       ) : (
-        <div className="space-y-3">
-          {negocios.map((n) => (
-            <div key={n.id} className="bg-white rounded-2xl p-5 shadow-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`w-2.5 h-2.5 rounded-full ${semaforoColor[n.semaforo]}`} />
-                    <h2 className="font-black text-gray-800">{n.nombre}</h2>
-                    {!n.activo && (
-                      <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                        BLOQUEADO
-                      </span>
-                    )}
+        <>
+          <div className="space-y-3">
+            {negocios.map((n) => (
+              <div key={n.id} className="bg-white rounded-2xl p-5 shadow-sm">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`w-2.5 h-2.5 rounded-full ${semaforoColor[n.semaforo]}`} />
+                      <h2 className="font-black text-gray-800">{n.nombre}</h2>
+                      {!n.activo && (
+                        <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                          BLOQUEADO
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">{n.mensaje}</p>
                   </div>
-                  <p className="text-xs text-gray-500">{n.mensaje}</p>
+                </div>
+
+                <div className="space-y-1.5 text-sm border-t border-gray-100 pt-3">
+                  <CredencialRow label="Link cajero" value={baseUrl + n.linkCajero} />
+                  <CredencialRow label="Clave cajero" value={n.claveCajero ?? "—"} />
+                  <CredencialRow label="Link dueño" value={baseUrl + n.linkDueno} />
+                  <CredencialRow label="Clave dueño" value={n.claveDueno ?? "—"} />
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button
+                    onClick={() => ejecutar(n.id, "activar")}
+                    className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200"
+                  >
+                    Activar mensualidad
+                  </button>
+                  {n.activo ? (
+                    <button
+                      onClick={() => ejecutar(n.id, "bloquear")}
+                      className="text-xs font-bold bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200"
+                    >
+                      Bloquear
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => ejecutar(n.id, "reactivar")}
+                      className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200"
+                    >
+                      Reactivar
+                    </button>
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="space-y-1.5 text-sm border-t border-gray-100 pt-3">
-                <CredencialRow label="Link cajero" value={origin() + n.linkCajero} />
-                <CredencialRow label="Clave cajero" value={n.claveCajero ?? "—"} />
-                <CredencialRow label="Link dueño" value={origin() + n.linkDueno} />
-                <CredencialRow label="Clave dueño" value={n.claveDueno ?? "—"} />
-              </div>
-
-              <div className="flex flex-wrap gap-2 mt-4">
-                <button
-                  onClick={() => ejecutar(n.id, "activar")}
-                  className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200"
-                >
-                  Activar mensualidad
-                </button>
-                {n.activo ? (
-                  <button
-                    onClick={() => ejecutar(n.id, "bloquear")}
-                    className="text-xs font-bold bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200"
-                  >
-                    Bloquear
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => ejecutar(n.id, "reactivar")}
-                    className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200"
-                  >
-                    Reactivar
-                  </button>
-                )}
-              </div>
+          {/* PAGINACIÓN */}
+          <div className="flex items-center justify-between mt-6 bg-white rounded-2xl p-3 shadow-sm">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-4 py-2 text-sm font-bold bg-gray-100 text-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-200"
+            >
+              ← Anterior
+            </button>
+            <div className="text-center">
+              <p className="text-sm font-bold text-gray-700">
+                Página {page} de {totalPages}
+              </p>
+              <p className="text-[10px] text-gray-400">
+                {desde}–{hasta} de {total}
+              </p>
             </div>
-          ))}
-        </div>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-4 py-2 text-sm font-bold bg-gray-100 text-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-200"
+            >
+              Siguiente →
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-function origin(): string {
-  if (typeof window === "undefined") return "";
-  return window.location.origin;
-}
-
 function CredencialRow({ label, value }: { label: string; value: string }) {
+  const [copiado, setCopiado] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
+      setCopiado(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopiado(false), 2000);
     } catch {
       /* ignore */
     }
   }
+
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest shrink-0">
@@ -320,9 +436,13 @@ function CredencialRow({ label, value }: { label: string; value: string }) {
       <code className="flex-1 text-xs text-gray-700 truncate text-right">{value}</code>
       <button
         onClick={copy}
-        className="text-[10px] font-bold text-blue-600 hover:underline shrink-0"
+        className={`text-[10px] font-bold shrink-0 px-2 py-0.5 rounded transition-colors ${
+          copiado
+            ? "bg-green-100 text-green-700"
+            : "text-blue-600 hover:underline"
+        }`}
       >
-        copiar
+        {copiado ? "✓ Copiado" : "Copiar"}
       </button>
     </div>
   );

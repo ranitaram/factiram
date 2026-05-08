@@ -5,32 +5,52 @@ import { isAdmin } from "@/lib/factiram-session";
 import { crearNegocio } from "@/lib/onboarding";
 import { getSemaforoAdmin } from "@/lib/factiram-access";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   try {
-    const negocios = await prisma.negocio.findMany({
-      select: {
-        id: true,
-        nombre: true,
-        slugUrl: true,
-        activo: true,
-        createdAt: true,
-        suscripcion: {
-          select: {
-            setupPagado: true,
-            trialStartedAt: true,
-            proximoPagoAt: true,
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit") || 10)));
+    const search = (searchParams.get("search") || "").trim();
+
+    const where: Prisma.NegocioWhereInput = search
+      ? {
+          OR: [
+            { nombre: { contains: search, mode: "insensitive" } },
+            { slugUrl: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
+
+    // count + findMany en paralelo — Neon devuelve ambos en un round-trip por conexión
+    const [total, negocios] = await Promise.all([
+      prisma.negocio.count({ where }),
+      prisma.negocio.findMany({
+        where,
+        select: {
+          id: true,
+          nombre: true,
+          slugUrl: true,
+          activo: true,
+          suscripcion: {
+            select: {
+              setupPagado: true,
+              trialStartedAt: true,
+              proximoPagoAt: true,
+            },
+          },
+          usuarios: {
+            select: { rol: true, clave: true },
           },
         },
-        usuarios: {
-          select: { rol: true, clave: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
 
     const data = negocios.map((n) => {
       const sem = n.suscripcion
@@ -53,7 +73,13 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ negocios: data });
+    return NextResponse.json({
+      negocios: data,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      page,
+      limit,
+    });
   } catch (error) {
     console.error("Error listando negocios:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
