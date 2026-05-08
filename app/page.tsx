@@ -63,13 +63,14 @@ export default function LandingPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
-          <Link
-            href="/audit"
-            className="bg-emerald-pro text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-3"
+          <a
+             href="https://wa.me/523318502310?text=%C2%A1Hola!%20Vengo%20de%20Factiram%20y%20me%20gustar%C3%ADa%20recibir%20m%C3%A1s%20informaci%C3%B3n%20sobre%20la%20prueba%20gratis."
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-emerald-pro text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-3"
           >
-            Probar Gratis 7 Días
-            <ArrowRight className="w-5 h-5" />
-          </Link>
+          Probar 7 Días Gratis <ArrowRight className="w-5 h-5" />
+          </a>
 
           <a
             href="#como-funciona"
@@ -374,12 +375,14 @@ export default function LandingPage() {
             Descubre cómo se mueve realmente el dinero de tu negocio antes de seguir operando a ciegas.
           </p>
 
-          <Link
-            href="/audit"
+          <a
+            href="https://wa.me/523318502310?text=%C2%A1Hola!%20Vengo%20de%20Factiram%20y%20me%20gustar%C3%ADa%20recibir%20m%C3%A1s%20informaci%C3%B3n%20sobre%20la%20prueba%20gratis."
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex bg-midnight text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl"
-          >
+            >
             Empezar Prueba Gratis
-          </Link>
+          </a>
         </div>
       </section>
 
