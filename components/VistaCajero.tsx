@@ -9,6 +9,7 @@ import {
 type Props = {
   negocioId: string;
   negocioNombre: string;
+  slug: string;
   esTrial?: boolean;
   data: {
     productos: FactiramInput["productos"];
@@ -21,6 +22,7 @@ type Props = {
 export default function VistaCajero({
   negocioId,
   negocioNombre,
+  slug,
   data,
 }: Props) {
   const [piezasVendidasHoy, setPiezasVendidasHoy] = useState(0);
@@ -94,6 +96,16 @@ export default function VistaCajero({
     return () => clearTimeout(t);
   }, [efectivoManualInput, negocioId]);
 
+  async function cerrarSesion() {
+    try {
+      await fetch("/api/auth/factiram", { method: "DELETE" });
+    } catch {
+      // Aunque falle el DELETE, mandamos al login: la cookie se invalida en
+      // el siguiente request y el guard del page lo redirige igual.
+    }
+    window.location.href = `/${slug}/login`;
+  }
+
   async function registrarVenta(productoId: string) {
     if (guardandoId) return;
     setGuardandoId(productoId);
@@ -164,18 +176,28 @@ export default function VistaCajero({
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 max-w-lg mx-auto pb-10">
 
       {/* HEADER */}
-      <div className="text-center mb-6 w-full">
-        <h1 className="text-3xl font-extrabold text-blue-600 tracking-tight">
-          FACTIRAM
-        </h1>
-        <p className="text-gray-500 font-medium text-sm">{negocioNombre}</p>
-        <p className="text-gray-400 text-xs capitalize">
-          {new Date().toLocaleDateString("es-MX", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
+      <div className="relative w-full mb-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-extrabold text-blue-600 tracking-tight">
+            FACTIRAM
+          </h1>
+          <p className="text-gray-500 font-medium text-sm">{negocioNombre}</p>
+          <p className="text-gray-400 text-xs capitalize">
+            {new Date().toLocaleDateString("es-MX", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              timeZone: "America/Mexico_City",
+            })}
+          </p>
+        </div>
+        <button
+          onClick={cerrarSesion}
+          className="absolute top-0 right-0 text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors px-2 py-1"
+          title="Cerrar sesión"
+        >
+          Salir
+        </button>
       </div>
 
       {/* DINERO REAL HOY */}

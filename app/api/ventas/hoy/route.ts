@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { startOfDay, endOfDay } from "date-fns";
+import { inicioDiaMX, finDiaMX } from "@/lib/fecha";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
@@ -14,9 +17,8 @@ export async function GET(req: Request) {
       );
     }
 
-    const ahora = new Date();
-    const inicio = startOfDay(ahora);
-    const fin = endOfDay(ahora);
+    const inicio = inicioDiaMX();
+    const fin = finDiaMX();
 
     const ventas = await prisma.ventaDia.findMany({
       where: {

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { startOfDay, endOfDay } from "date-fns";
+import { inicioDiaMX, finDiaMX, fechaDiaMX, TIMEZONE_MX } from "@/lib/fecha";
 
-function fechaDia(): Date {
-  const hoy = new Date();
-  return new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate()));
-}
+// Sin caché: los datos del día deben venir frescos de la BD en cada poll.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
@@ -19,9 +18,8 @@ export async function GET(req: Request) {
       );
     }
 
-    const ahora = new Date();
-    const inicio = startOfDay(ahora);
-    const fin = endOfDay(ahora);
+    const inicio = inicioDiaMX();
+    const fin = finDiaMX();
 
     // 3 queries en paralelo. groupBy y aggregate hacen el cómputo en BD —
     // no traemos filas individuales por venta/gasto.
@@ -36,7 +34,7 @@ export async function GET(req: Request) {
         _sum: { monto: true },
       }),
       prisma.efectivoCaja.findUnique({
-        where: { negocioId_fecha: { negocioId, fecha: fechaDia() } },
+        where: { negocioId_fecha: { negocioId, fecha: fechaDiaMX() } },
         select: { monto: true },
       }),
     ]);
@@ -58,10 +56,26 @@ export async function GET(req: Request) {
       }
     }
 
+    const gastosHoy = Number(gastoAgg._sum.monto ?? 0);
+    const efectivoHoy = Number(efectivoRow?.monto ?? 0);
+
+    // Log diagnóstico: visible en runtime logs de Vercel. Permite verificar el
+    // rango exacto que se aplicó y los valores que vuelven a la UI.
+    console.log("[FACTIRAM] resumen", {
+      tz: TIMEZONE_MX,
+      negocioId,
+      rangoUTC: { inicio: inicio.toISOString(), fin: fin.toISOString() },
+      filas: ventasAgrupadas.length,
+      ventasHoy,
+      gastosHoy,
+      efectivoHoy,
+      piezasVendidas,
+    });
+
     return NextResponse.json({
       ventasHoy,
-      gastosHoy: Number(gastoAgg._sum.monto ?? 0),
-      efectivoHoy: Number(efectivoRow?.monto ?? 0),
+      gastosHoy,
+      efectivoHoy,
       efectivoSistema,
       piezasVendidas,
       ventasPorProducto,

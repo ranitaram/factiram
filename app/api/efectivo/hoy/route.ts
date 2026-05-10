@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { fechaDiaMX } from "@/lib/fecha";
 
-function fechaDia(): Date {
-  const hoy = new Date();
-  return new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate()));
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
@@ -16,7 +15,7 @@ export async function GET(req: Request) {
     }
 
     const registro = await prisma.efectivoCaja.findUnique({
-      where: { negocioId_fecha: { negocioId, fecha: fechaDia() } },
+      where: { negocioId_fecha: { negocioId, fecha: fechaDiaMX() } },
     });
 
     return NextResponse.json({ monto: Number(registro?.monto ?? 0) });
@@ -35,7 +34,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
     }
 
-    const fecha = fechaDia();
+    const fecha = fechaDiaMX();
 
     const registro = await prisma.efectivoCaja.upsert({
       where: { negocioId_fecha: { negocioId, fecha } },

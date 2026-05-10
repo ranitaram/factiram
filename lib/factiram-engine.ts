@@ -299,17 +299,25 @@ export function calcularPrediccion(
   );
 
   // ── Flujo proyectado ────────────────────────────────────────
-  const precioPromedio = totalPiezasDia.gt(0)
+  // Coherente con la proyección de piezas: mismo número de piezas, mismo
+  // ticket promedio que el cajero está cobrando hoy.
+  //
+  // Bug que esto resuelve: extrapolar `efectivoHoy / horasTranscurridas * horasTotales`
+  // a las primeras horas amplifica una venta puntual a la jornada completa.
+  // Ej: $65 en 0.5h producía $1,430 proyectados — absurdo y desconectado de
+  // las piezas proyectadas (~6).
+  const precioPromedioConfig = totalPiezasDia.gt(0)
     ? productos.reduce((acc, p) => acc + p.precioVenta * p.piezasDia, 0) / totalPiezasDia.toNumber()
     : 0;
 
-  // Si el cajero ya ingresó efectivo real: extrapolar desde ese dato concreto.
-  // Si no: proyectar desde las piezas esperadas (asumiendo 80% cobro en efectivo).
-  const efectivoProyectado = efectivoHoy > 0
-    ? (efectivoHoy / horasTranscurridas) * horasTotales
-    : proyeccionPiezas * precioPromedio * 0.8;
+  // Ticket real cobrado por pieza HOY. Si aún no hay ventas, asumimos cobro
+  // al precio promedio configurado, descontando 20% por fiado.
+  const efectivoPorPieza = piezasVendidasHoy > 0
+    ? efectivoHoy / piezasVendidasHoy
+    : precioPromedioConfig * 0.8;
 
-  const proyeccionFlujo = efectivoProyectado - gastosHoy - costosPorDia;
+  const ingresoBrutoEstimado = proyeccionPiezas * efectivoPorPieza;
+  const proyeccionFlujo = ingresoBrutoEstimado - gastosHoy - costosPorDia;
 
   // ── Nivel de alerta ─────────────────────────────────────────
   const porcentajeAvance = metaDiaria > 0 ? (piezasVendidasHoy / metaDiaria) * 100 : 100;

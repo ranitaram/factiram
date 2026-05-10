@@ -39,6 +39,7 @@ const SEMAFORO = {
 type Props = {
   negocioId: string;
   negocioNombre: string;
+  slug: string;
   esTrial?: boolean;
   data: {
     productos: ProductoInput[];
@@ -48,7 +49,7 @@ type Props = {
   };
 };
 
-export default function DashboardDueno({ negocioId, negocioNombre, data }: Props) {
+export default function DashboardDueno({ negocioId, negocioNombre, slug, data }: Props) {
   // ── Datos del día (vienen del API — polling) ─────────────
   const [piezasVendidasHoy, setPiezasVendidasHoy] = useState(0);
   const [efectivoHoy, setEfectivoHoy] = useState(0);
@@ -220,6 +221,16 @@ export default function DashboardDueno({ negocioId, negocioNombre, data }: Props
     setGastosHoy(0);
   }
 
+  async function cerrarSesion() {
+    try {
+      await fetch("/api/auth/factiram", { method: "DELETE" });
+    } catch {
+      // Aunque falle el DELETE, mandamos al login: el guard del page redirige
+      // si la cookie ya no es válida.
+    }
+    window.location.href = `/${slug}/login`;
+  }
+
   const btnGuardar = (state: SaveState, onSave: () => void) => (
     <button
       onClick={onSave}
@@ -241,9 +252,18 @@ export default function DashboardDueno({ negocioId, negocioNombre, data }: Props
     <div className="min-h-screen bg-gray-100 p-4 max-w-md mx-auto pb-10">
 
       {/* HEADER */}
-      <div className="text-center mb-4">
-        <h1 className="text-2xl font-black text-blue-600">FACTIRAM</h1>
-        <p className="text-gray-500 text-sm">{negocioNombre}</p>
+      <div className="relative mb-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-black text-blue-600">FACTIRAM</h1>
+          <p className="text-gray-500 text-sm">{negocioNombre}</p>
+        </div>
+        <button
+          onClick={cerrarSesion}
+          className="absolute top-0 right-0 text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors px-2 py-1"
+          title="Cerrar sesión"
+        >
+          Salir
+        </button>
       </div>
 
       {/* ALERTA DEL DÍA */}

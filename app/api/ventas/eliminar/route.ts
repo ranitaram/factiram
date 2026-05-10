@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { startOfDay, endOfDay } from "date-fns";
+import { inicioDiaMX, finDiaMX } from "@/lib/fecha";
+
+export const dynamic = "force-dynamic";
 
 export async function DELETE(req: Request) {
   try {
@@ -14,9 +16,8 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const ahora = new Date();
-    const inicio = startOfDay(ahora);
-    const fin = endOfDay(ahora);
+    const inicio = inicioDiaMX();
+    const fin = finDiaMX();
 
     // 🔥 MISMO RANGO QUE EL GET
     const venta = await prisma.ventaDia.findFirst({

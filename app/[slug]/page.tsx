@@ -85,6 +85,7 @@ export default async function NegocioPage({
   const sharedProps = {
     negocioId: negocio.id,
     negocioNombre: negocio.nombre,
+    slug,
     esTrial,
     data: {
       productos: productosInput,
