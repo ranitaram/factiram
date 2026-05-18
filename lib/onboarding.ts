@@ -151,3 +151,28 @@ export async function reactivarNegocio(negocioId: string) {
   });
   return { ok: true };
 }
+
+// Eliminacion total y atomica de un negocio y TODOS sus datos relacionados.
+// Orden explicito porque GastoDia no tiene onDelete: Cascade y porque
+// VentaDia->Producto / CobroFiado->VentaDia son Restrict por defecto.
+export async function eliminarNegocio(negocioId: string) {
+  const existe = await prisma.negocio.findUnique({
+    where: { id: negocioId },
+    select: { id: true, nombre: true, slugUrl: true },
+  });
+  if (!existe) throw new Error("Negocio no encontrado");
+
+  await prisma.$transaction([
+    prisma.cobroFiado.deleteMany({ where: { negocioId } }),
+    prisma.ventaDia.deleteMany({ where: { negocioId } }),
+    prisma.gastoDia.deleteMany({ where: { negocioId } }),
+    prisma.efectivoCaja.deleteMany({ where: { negocioId } }),
+    prisma.costoFijo.deleteMany({ where: { negocioId } }),
+    prisma.producto.deleteMany({ where: { negocioId } }),
+    prisma.usuarioNegocio.deleteMany({ where: { negocioId } }),
+    prisma.suscripcion.deleteMany({ where: { negocioId } }),
+    prisma.negocio.delete({ where: { id: negocioId } }),
+  ]);
+
+  return { ok: true, id: existe.id, nombre: existe.nombre, slug: existe.slugUrl };
+}

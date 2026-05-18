@@ -73,6 +73,11 @@ export default function AdminPanel() {
   const [recienCreado, setRecienCreado] = useState<Negocio | null>(null);
   const enviandoRef = useRef(false);
 
+  const [eliminarTarget, setEliminarTarget] = useState<Negocio | null>(null);
+  const [eliminarTexto, setEliminarTexto] = useState("");
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
   // ── Debounce del buscador (~400ms) ─────────────────────
   // Evita disparar fetch en cada tecla. Cuando el usuario escribe, sólo
   // tras 400ms sin cambios se actualiza `search`, lo que dispara el fetch.
@@ -180,6 +185,60 @@ export default function AdminPanel() {
     } finally {
       setCreando(false);
       enviandoRef.current = false;
+    }
+  }
+
+  function abrirEliminar(n: Negocio) {
+    setEliminarTarget(n);
+    setEliminarTexto("");
+    setErrorEliminar(null);
+  }
+
+  function cerrarEliminar() {
+    if (eliminando) return;
+    setEliminarTarget(null);
+    setEliminarTexto("");
+    setErrorEliminar(null);
+  }
+
+  async function confirmarEliminar() {
+    if (!eliminarTarget || eliminando) return;
+    if (eliminarTexto.trim() !== eliminarTarget.nombre) {
+      setErrorEliminar("El nombre no coincide.");
+      return;
+    }
+    setEliminando(true);
+    setErrorEliminar(null);
+    try {
+      const res = await fetch(`/api/admin/negocios/${eliminarTarget.id}`, {
+        method: "DELETE",
+      });
+      const { ok, error } = await leerJsonSeguro(res);
+      if (!ok) {
+        setErrorEliminar(error || "No se pudo eliminar");
+        return;
+      }
+      // Actualizacion local: quitar el negocio sin refetch completo.
+      const eliminadoId = eliminarTarget.id;
+      const restantesEnPagina = negocios.length - 1;
+      setNegocios((prev) => prev.filter((x) => x.id !== eliminadoId));
+      setTotal((t) => Math.max(0, t - 1));
+      const nuevoTotal = Math.max(0, total - 1);
+      const nuevasPaginas = Math.max(1, Math.ceil(nuevoTotal / PAGE_SIZE));
+      setTotalPages(nuevasPaginas);
+      setEliminarTarget(null);
+      setEliminarTexto("");
+      // Si la pagina actual quedo vacia y no es la primera, retroceder.
+      // En otros casos refetch ligero para rellenar con el siguiente registro.
+      if (restantesEnPagina === 0 && page > 1) {
+        setPage((p) => Math.min(nuevasPaginas, p - 1));
+      } else {
+        await cargar();
+      }
+    } catch {
+      setErrorEliminar("Error de conexión");
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -371,10 +430,97 @@ export default function AdminPanel() {
                       Reactivar
                     </button>
                   )}
+                  <button
+                    onClick={() => abrirEliminar(n)}
+                    className="text-xs font-bold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 ml-auto inline-flex items-center gap-1.5 shadow-sm"
+                    title="Eliminar negocio permanentemente"
+                  >
+                    <span aria-hidden>🗑</span> Eliminar
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* MODAL ELIMINAR */}
+          {eliminarTarget && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              onClick={cerrarEliminar}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border-t-4 border-red-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">
+                    ⚠️
+                  </div>
+                  <h3 className="text-lg font-black text-gray-800">
+                    Eliminar negocio
+                  </h3>
+                </div>
+
+                <p className="text-sm text-gray-700 mb-3">
+                  Vas a eliminar permanentemente{" "}
+                  <span className="font-bold text-gray-900">
+                    {eliminarTarget.nombre}
+                  </span>
+                  . Esta acción es{" "}
+                  <span className="font-bold text-red-600">irreversible</span>.
+                </p>
+
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-xs text-red-900 space-y-1">
+                  <p className="font-bold">Se borrarán todos los datos:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-red-800">
+                    <li>Suscripción y accesos (dueño/cajero)</li>
+                    <li>Productos, costos fijos y configuración</li>
+                    <li>Ventas, fiados y cobros</li>
+                    <li>Gastos y efectivo en caja</li>
+                  </ul>
+                </div>
+
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                  Escribe el nombre para confirmar
+                </label>
+                <input
+                  value={eliminarTexto}
+                  onChange={(e) => {
+                    setEliminarTexto(e.target.value);
+                    if (errorEliminar) setErrorEliminar(null);
+                  }}
+                  placeholder={eliminarTarget.nombre}
+                  autoFocus
+                  disabled={eliminando}
+                  className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-400 disabled:opacity-60"
+                />
+
+                {errorEliminar && (
+                  <p className="text-red-500 text-sm mt-2">{errorEliminar}</p>
+                )}
+
+                <div className="flex gap-2 mt-5">
+                  <button
+                    onClick={cerrarEliminar}
+                    disabled={eliminando}
+                    className="flex-1 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmarEliminar}
+                    disabled={
+                      eliminando ||
+                      eliminarTexto.trim() !== eliminarTarget.nombre
+                    }
+                    className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {eliminando ? "Eliminando…" : "Eliminar definitivamente"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* PAGINACIÓN */}
           <div className="flex items-center justify-between mt-6 bg-white rounded-2xl p-3 shadow-sm">
