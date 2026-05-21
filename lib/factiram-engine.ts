@@ -129,15 +129,24 @@ export function calcularFactiram(input: FactiramInput): FactiramOutput {
   }
 
   // ── 6. Recuperación REAL ────────────────────
-  const inversion = new Decimal(inversionMercancia);
+  // inversionMercancia puede llegar como 0, negativo, NaN o undefined si el
+  // dueño aún no lo capturó. Saneamos antes de operar para no propagar NaN.
+  const inversionNum = Number(inversionMercancia);
+  const inversion = new Decimal(
+    Number.isFinite(inversionNum) && inversionNum > 0 ? inversionNum : 0
+  );
 
-  const recuperado = flujoRealHoy;
+  // Si el flujo del día es negativo (más gastos que cobros) no tiene sentido
+  // restarlo a la inversión: no estás "des-recuperando" mercancía.
+  const recuperado = Decimal.max(0, flujoRealHoy);
 
   const porcentaje = inversion.gt(0)
-    ? recuperado.div(inversion).mul(100).toNumber()
+    ? Math.min(100, recuperado.div(inversion).mul(100).toNumber())
     : 0;
 
-  const faltante = Math.max(0, inversion.sub(recuperado).toNumber());
+  const faltante = inversion.gt(0)
+    ? Math.max(0, inversion.sub(recuperado).toNumber())
+    : 0;
 
   // ── 7. Resumen mensual ──────────────────────
   const gananciaBrutaMes = productos.reduce((acc, p) => {

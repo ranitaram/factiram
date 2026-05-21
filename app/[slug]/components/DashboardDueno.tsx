@@ -70,12 +70,21 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
   );
 
   const [diasLaborales, setDiasLaborales] = useState(data.diasLaborales);
-  const [inversionMercancia] = useState(data.inversionMercancia);
+  const [inversionMercancia, setInversionMercancia] = useState<number>(
+    Number.isFinite(data.inversionMercancia) && data.inversionMercancia > 0
+      ? data.inversionMercancia
+      : 0
+  );
+  // Input controlado: string para permitir vaciar el campo sin saltar a 0.
+  const [inversionInput, setInversionInput] = useState<string>(
+    inversionMercancia > 0 ? String(inversionMercancia) : ""
+  );
   const [horaActual, setHoraActual] = useState(new Date().getHours());
 
   // ── Estado de guardado ───────────────────────────────────
   const [costosSave, setCostosSave] = useState<SaveState>("idle");
   const [productosSave, setProductosSave] = useState<SaveState>("idle");
+  const [inversionSave, setInversionSave] = useState<SaveState>("idle");
 
   // ── Polling unificado cada 60s, solo si la pestaña está visible ──
   const fetchResumen = useCallback(async () => {
@@ -128,6 +137,14 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
 
   const costoPorDia = r.totalCostosFijos / (diasLaborales || 26);
   const utilidadRealHoy = r.flujoRealHoy - costoPorDia;
+
+  // Porcentaje de recuperación redondeado para la pill del header
+  const pctRecuperacion = Math.round(r.recuperacion.porcentaje);
+
+  // Detecta si el dueño aún no ha configurado el promedio diario en ningún producto
+  const sinPromedioConfigurado = productos.every(
+    (p) => Number(p.piezasDia) === 0
+  );
 
   // ── Diagnóstico mensual ──────────────────────────────────
   let diagnostico = "";
@@ -214,6 +231,29 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
     }
   }
 
+  async function guardarInversion() {
+    const parsed = inversionInput.trim() === "" ? 0 : Number(inversionInput);
+    const monto = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+
+    setInversionSave("saving");
+    try {
+      const res = await fetch("/api/config/negocio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ negocioId, inversionMercancia: monto }),
+      });
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const persistido = Number(json.inversionMercancia ?? monto);
+      setInversionMercancia(persistido);
+      setInversionInput(persistido > 0 ? String(persistido) : "");
+      setInversionSave("ok");
+      setTimeout(() => setInversionSave("idle"), 2500);
+    } catch {
+      setInversionSave("error");
+    }
+  }
+
   function cerrarMes() {
     if (!confirm("¿Cerrar el mes? Esta acción reiniciará los contadores del día.")) return;
     setPiezasVendidasHoy(0);
@@ -258,12 +298,13 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
           <p className="text-gray-500 text-sm">{negocioNombre}</p>
         </div>
         <button
-          onClick={cerrarSesion}
-          className="absolute top-0 right-0 text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors px-2 py-1"
-          title="Cerrar sesión"
+        onClick={cerrarSesion}
+        className="absolute top-0 right-0 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
+        title="Cerrar sesión"
         >
-          Salir
+         Salir
         </button>
+
       </div>
 
       {/* ALERTA DEL DÍA */}
@@ -379,17 +420,109 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
 
       {/* CUÁNDO EMPIEZAS A GANAR DE VERDAD */}
       <div className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-        <p className="font-bold mb-3 text-gray-700 text-sm">Cuándo empiezas a ganar de verdad</p>
-        <div className="bg-gray-200 h-3 rounded-full mb-3 overflow-hidden">
-          <div
-            className="bg-green-500 h-full rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(100, r.recuperacion.porcentaje)}%` }}
-          />
+        <div className="flex justify-between items-start mb-2">
+          <p className="font-bold text-sm text-gray-700">Cuándo empiezas a ganar de verdad</p>
+          {inversionMercancia > 0 && (
+            <span
+              className={`text-xs font-bold px-2 py-1 rounded-full ${
+                pctRecuperacion >= 80
+                  ? "bg-green-100 text-green-700"
+                  : pctRecuperacion >= 40
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {pctRecuperacion}%
+            </span>
+          )}
         </div>
-        <div className="flex justify-between text-xs text-gray-600">
-          <span>Recuperado: ${Math.round(r.recuperacion.recuperado).toLocaleString("es-MX")}</span>
-          <span className="font-black text-gray-800">{Math.round(r.recuperacion.porcentaje)}%</span>
-          <span>Faltan: ${Math.round(r.recuperacion.faltante).toLocaleString("es-MX")}</span>
+
+        {inversionMercancia > 0 ? (
+          <>
+            <div className="bg-gray-200 h-3 rounded-full mb-3 overflow-hidden">
+              <div
+                className="bg-green-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, r.recuperacion.porcentaje)}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Pusiste{" "}
+              <span className="font-semibold text-gray-700">
+                ${inversionMercancia.toLocaleString("es-MX")}
+              </span>{" "}
+              en mercancía
+            </p>
+            <p className="text-xs text-gray-500 leading-relaxed mt-1">
+              Llevas cobrados{" "}
+              <span className="font-semibold text-gray-700">
+                ${Math.round(r.recuperacion.recuperado).toLocaleString("es-MX")}
+              </span>
+              . Te faltan{" "}
+              <span className="font-semibold text-gray-700">
+                ${Math.round(r.recuperacion.faltante).toLocaleString("es-MX")}
+              </span>{" "}
+              por recuperar.
+            </p>
+
+            <div className="mt-3 bg-green-50 border-l-4 border-green-400 rounded-r-xl p-3">
+              <p className="text-xs text-green-700 leading-relaxed">
+                Cada peso que cobras descuenta tu inversión inicial. Una vez que recuperes el 100%,
+                todo lo que vendas por encima de tus costos fijos es ganancia tuya.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3 flex gap-2 items-start">
+            <span className="text-orange-500 text-base mt-0.5">⚠️</span>
+            <div>
+              <p className="text-xs font-bold text-orange-700">
+                Falta capturar tu inversión inicial
+              </p>
+              <p className="text-xs text-orange-600 mt-0.5 leading-relaxed">
+                Escribe abajo cuánto dinero metiste en mercancía para que podamos calcular
+                cuánto te falta recuperar.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Input + guardar — visible siempre, para capturar o corregir */}
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <label className="block text-[10px] font-bold text-gray-400 mb-1 tracking-widest">
+            ¿CUÁNTO METISTE EN MERCANCÍA?
+          </label>
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden mb-2">
+            <span className="px-2 text-gray-400 text-xs bg-gray-50 self-stretch flex items-center">
+              $
+            </span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={inversionInput}
+              onChange={(e) => {
+                setInversionInput(e.target.value);
+                setInversionSave("idle");
+              }}
+              placeholder="0"
+              className="flex-1 p-2 text-sm font-medium focus:outline-none min-w-0"
+            />
+          </div>
+          <button
+            onClick={guardarInversion}
+            disabled={inversionSave === "saving"}
+            className={`w-full py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 ${
+              inversionSave === "ok"    ? "bg-green-100 text-green-700" :
+              inversionSave === "error" ? "bg-red-100 text-red-700 cursor-pointer" :
+                                          "bg-blue-600 text-white active:bg-blue-700"
+            }`}
+          >
+            {inversionSave === "saving" ? "Guardando..." :
+             inversionSave === "ok"     ? "✓ Guardado" :
+             inversionSave === "error"  ? "Error — intentar de nuevo" :
+                                          "Guardar inversión"}
+          </button>
         </div>
       </div>
 
@@ -398,6 +531,24 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
         <p className="text-xs uppercase tracking-widest opacity-60 mb-1">
           Dinero que vas ganando al mes
         </p>
+        <p className="text-gray-400 text-xs mb-3">
+          Proyección mensual · basada en el campo &quot;Promedio al día&quot; de cada producto
+        </p>
+
+        {sinPromedioConfigurado && (
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3 flex gap-2 items-start text-left">
+            <span className="text-orange-500 text-base mt-0.5">⚠️</span>
+            <div>
+              <p className="text-xs font-bold text-orange-700">Configura el promedio diario</p>
+              <p className="text-xs text-orange-600 mt-0.5 leading-relaxed">
+                Todos tus productos tienen &quot;Promedio al día&quot; en 0.
+                Sube a la sección &quot;Tus productos&quot; y escribe cuántas piezas vendes en promedio cada día.
+                Eso actualizará esta proyección.
+              </p>
+            </div>
+          </div>
+        )}
+
         <p className={`text-3xl font-black ${r.utilidadMes >= 0 ? "text-green-400" : "text-red-400"}`}>
           ${Math.round(r.utilidadMes).toLocaleString("es-MX")}
         </p>
@@ -410,20 +561,39 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
             <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">
               Mínimo al mes para no perder
             </p>
-            <p className="font-bold">{r.puntoEquilibrio} pzas</p>
+            <p className="font-bold">{r.puntoEquilibrio.toLocaleString("es-MX")} pzas</p>
           </div>
           <div className="bg-white/10 rounded-xl p-3">
             <p className="text-[10px] uppercase tracking-widest opacity-60 mb-1">
               Proyección mensual
             </p>
-            <p className="font-bold">{Math.round(r.ventasMes)} pzas</p>
+            <p className="font-bold">{Math.round(r.ventasMes).toLocaleString("es-MX")} pzas</p>
           </div>
         </div>
 
-        {r.negocioEnPerdida && (
-          <p className="mt-4 text-red-400 text-sm font-bold">
-            Con estos números tu negocio pierde dinero cada mes.
+        <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed">
+          Esta proyección NO cambia al registrar ventas del día.
+          Refleja tu configuración de productos, no el movimiento diario.
+        </p>
+
+        {inversionMercancia > 0 && (
+          <p className="text-xs text-amber-300 mt-2 text-center leading-relaxed">
+            {r.recuperacion.faltante > 0
+              ? `Antes de retirar ganancia, aún faltan $${Math.round(r.recuperacion.faltante).toLocaleString("es-MX")} por recuperar de mercancía.`
+              : "Ya recuperaste tu inversión inicial en mercancía."}
           </p>
+        )}
+
+        {r.negocioEnPerdida && (
+          <div className="mt-3 bg-red-50 border-l-4 border-red-400 rounded-r-xl p-3 text-left">
+            <p className="text-xs font-bold text-red-700 mb-1">
+              Tu negocio está perdiendo dinero cada mes
+            </p>
+            <p className="text-xs text-red-600 leading-relaxed">
+              Con tu configuración actual, gastas más de lo que generas.
+              Aumenta el precio de venta, reduce costos fijos o vende más piezas al día.
+            </p>
+          </div>
         )}
 
         <p className="mt-3 text-sm opacity-80">{diagnostico}</p>

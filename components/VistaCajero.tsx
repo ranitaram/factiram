@@ -191,13 +191,14 @@ export default function VistaCajero({
             })}
           </p>
         </div>
-        <button
-          onClick={cerrarSesion}
-          className="absolute top-0 right-0 text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors px-2 py-1"
-          title="Cerrar sesión"
-        >
-          Salir
-        </button>
+       <button
+  onClick={cerrarSesion}
+  className="absolute top-0 right-0 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
+  title="Cerrar sesión"
+>
+  Salir
+</button>
+
       </div>
 
       {/* DINERO REAL HOY */}
@@ -231,9 +232,9 @@ export default function VistaCajero({
         <p className="text-5xl font-black text-blue-600 text-center mb-2">
           {piezasVendidasHoy}
         </p>
-        <p className="text-center text-xs text-gray-400 mb-6">
+       {/* <p className="text-center text-xs text-gray-400 mb-6">
           Meta: {metaDiaria} piezas para no perder
-        </p>
+        </p> */}
 
         {/* Barra de progreso hacia meta */}
         <div className="w-full bg-gray-100 rounded-full h-2 mb-6 overflow-hidden">
