@@ -27,6 +27,12 @@ export type FactiramInput = {
   inversionMercancia: number;
 
   gastosHoy?: number;
+
+  // Acumulado histórico de cobros para recuperación de mercancía.
+  // No se reinicia al cambiar de día. Si no se provee, el cálculo cae a
+  // `efectivoHoy` para mantener compatibilidad con llamadores que aún no
+  // pasan el valor (p. ej. VistaCajero, que no muestra recuperación).
+  recuperadoMercanciaAcumulado?: number;
 };
 
 // ── TIPOS DE SALIDA ─────────────────────────────────────
@@ -69,6 +75,7 @@ export function calcularFactiram(input: FactiramInput): FactiramOutput {
     efectivoHoy,
     inversionMercancia,
     gastosHoy = 0,
+    recuperadoMercanciaAcumulado,
   } = input;
 
   const dias = new Decimal(diasLaborales > 0 ? diasLaborales : 26);
@@ -136,9 +143,13 @@ export function calcularFactiram(input: FactiramInput): FactiramOutput {
     Number.isFinite(inversionNum) && inversionNum > 0 ? inversionNum : 0
   );
 
-  // Si el flujo del día es negativo (más gastos que cobros) no tiene sentido
-  // restarlo a la inversión: no estás "des-recuperando" mercancía.
-  const recuperado = Decimal.max(0, flujoRealHoy);
+  // La recuperación es ACUMULADA: usa el histórico cuando el llamador lo
+  // provee. Si no lo provee (compatibilidad), cae al flujo del día. Nunca
+  // negativo: gastar más que cobrar no "des-recupera" mercancía.
+  const acumuladoNum = Number(recuperadoMercanciaAcumulado);
+  const recuperado = Number.isFinite(acumuladoNum) && acumuladoNum > 0
+    ? new Decimal(acumuladoNum)
+    : Decimal.max(0, flujoRealHoy);
 
   const porcentaje = inversion.gt(0)
     ? Math.min(100, recuperado.div(inversion).mul(100).toNumber())

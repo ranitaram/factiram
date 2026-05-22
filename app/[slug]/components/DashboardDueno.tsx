@@ -55,6 +55,10 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
   const [efectivoHoy, setEfectivoHoy] = useState(0);
   const [gastosHoy, setGastosHoy] = useState(0);
 
+  // Acumulado histórico para la barra "Cuándo empiezas a ganar de verdad".
+  // No se reinicia al cambiar de día (a diferencia de los tres de arriba).
+  const [recuperadoMercanciaAcumulado, setRecuperadoMercanciaAcumulado] = useState(0);
+
   // ── Configuración editable ───────────────────────────────
   const [productos, setProductos] = useState<ProductoInput[]>(data.productos);
 
@@ -97,6 +101,7 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
       setPiezasVendidasHoy(json.piezasVendidas ?? 0);
       setEfectivoHoy(Number(json.efectivoHoy ?? 0));
       setGastosHoy(Number(json.gastosHoy ?? 0));
+      setRecuperadoMercanciaAcumulado(Number(json.recuperadoMercanciaAcumulado ?? 0));
     } catch (e) {
       console.error("Error al leer resumen", e);
     }
@@ -130,6 +135,7 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
     efectivoHoy,
     inversionMercancia,
     gastosHoy,
+    recuperadoMercanciaAcumulado,
   };
 
   const r = calcularFactiram(input);

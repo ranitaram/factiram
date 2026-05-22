@@ -21,9 +21,14 @@ export async function GET(req: Request) {
     const inicio = inicioDiaMX();
     const fin = finDiaMX();
 
-    // 3 queries en paralelo. groupBy y aggregate hacen el cómputo en BD —
+    // 4 queries en paralelo. groupBy y aggregate hacen el cómputo en BD —
     // no traemos filas individuales por venta/gasto.
-    const [ventasAgrupadas, gastoAgg, efectivoRow] = await Promise.all([
+    //
+    // `efectivoAcumuladoAgg` suma TODO el histórico de efectivo declarado por
+    // el cajero (una fila por día en EfectivoCaja). Sirve para la barra de
+    // recuperación de mercancía, que NO debe reiniciarse al cambiar de día.
+    // Los demás campos siguen siendo del día actual.
+    const [ventasAgrupadas, gastoAgg, efectivoRow, efectivoAcumuladoAgg] = await Promise.all([
       prisma.ventaDia.groupBy({
         by: ["productoId", "tipo"],
         where: { negocioId, fecha: { gte: inicio, lte: fin } },
@@ -36,6 +41,10 @@ export async function GET(req: Request) {
       prisma.efectivoCaja.findUnique({
         where: { negocioId_fecha: { negocioId, fecha: fechaDiaMX() } },
         select: { monto: true },
+      }),
+      prisma.efectivoCaja.aggregate({
+        where: { negocioId },
+        _sum: { monto: true },
       }),
     ]);
 
@@ -58,6 +67,9 @@ export async function GET(req: Request) {
 
     const gastosHoy = Number(gastoAgg._sum.monto ?? 0);
     const efectivoHoy = Number(efectivoRow?.monto ?? 0);
+    const recuperadoMercanciaAcumulado = Number(
+      efectivoAcumuladoAgg._sum.monto ?? 0
+    );
 
     // Log diagnóstico: visible en runtime logs de Vercel. Permite verificar el
     // rango exacto que se aplicó y los valores que vuelven a la UI.
@@ -69,6 +81,7 @@ export async function GET(req: Request) {
       ventasHoy,
       gastosHoy,
       efectivoHoy,
+      recuperadoMercanciaAcumulado,
       piezasVendidas,
     });
 
@@ -79,6 +92,7 @@ export async function GET(req: Request) {
       efectivoSistema,
       piezasVendidas,
       ventasPorProducto,
+      recuperadoMercanciaAcumulado,
     });
   } catch (error) {
     console.error("Error en GET /api/dashboard/resumen:", error);
