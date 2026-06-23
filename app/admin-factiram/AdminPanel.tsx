@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminAbastos from "@/components/AdminAbastos";
 
 // Lee la respuesta de forma segura: comprueba res.ok antes de parsear
 // y maneja respuestas no-JSON (HTML de error, vacío, etc.) sin romper la UI.
@@ -72,6 +73,8 @@ export default function AdminPanel() {
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
   const [recienCreado, setRecienCreado] = useState<Negocio | null>(null);
   const enviandoRef = useRef(false);
+
+  const [tabAdmin, setTabAdmin] = useState<"negocios" | "abastos">("negocios");
 
   const [eliminarTarget, setEliminarTarget] = useState<Negocio | null>(null);
   const [eliminarTexto, setEliminarTexto] = useState("");
@@ -274,6 +277,158 @@ export default function AdminPanel() {
   const desde = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const hasta = Math.min(page * PAGE_SIZE, total);
 
+  const listadoNegocios = (() => {
+    if (cargando) return <p className="text-center text-gray-500 py-8">Cargando…</p>;
+    if (negocios.length === 0)
+      return (
+        <p className="text-center text-gray-500 py-8">
+          {search ? `Sin resultados para "${search}".` : "No hay negocios todavía."}
+        </p>
+      );
+
+    return (
+      <div>
+        <div className="space-y-3">
+          {negocios.map((n) => (
+            <div key={n.id} className="bg-white rounded-2xl p-5 shadow-sm">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`w-2.5 h-2.5 rounded-full ${semaforoColor[n.semaforo]}`} />
+                    <h2 className="font-black text-gray-800">{n.nombre}</h2>
+                    {!n.activo && (
+                      <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                        BLOQUEADO
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">{n.mensaje}</p>
+                </div>
+              </div>
+              <div className="space-y-1.5 text-sm border-t border-gray-100 pt-3">
+                <CredencialRow label="Link cajero" value={baseUrl + n.linkCajero} />
+                <CredencialRow label="Clave cajero" value={n.claveCajero ?? "—"} />
+                <CredencialRow label="Link dueño" value={baseUrl + n.linkDueno} />
+                <CredencialRow label="Clave dueño" value={n.claveDueno ?? "—"} />
+              </div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <button
+                  onClick={() => ejecutar(n.id, "activar")}
+                  className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200"
+                >
+                  Activar mensualidad
+                </button>
+                {n.activo ? (
+                  <button
+                    onClick={() => ejecutar(n.id, "bloquear")}
+                    className="text-xs font-bold bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200"
+                  >
+                    Bloquear
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => ejecutar(n.id, "reactivar")}
+                    className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200"
+                  >
+                    Reactivar
+                  </button>
+                )}
+                <button
+                  onClick={() => abrirEliminar(n)}
+                  className="text-xs font-bold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 ml-auto inline-flex items-center gap-1.5 shadow-sm"
+                  title="Eliminar negocio permanentemente"
+                >
+                  <span aria-hidden>🗑</span> Eliminar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {eliminarTarget && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={cerrarEliminar}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border-t-4 border-red-600"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">⚠️</div>
+                <h3 className="text-lg font-black text-gray-800">Eliminar negocio</h3>
+              </div>
+              <p className="text-sm text-gray-700 mb-3">
+                Vas a eliminar permanentemente{" "}
+                <span className="font-bold text-gray-900">{eliminarTarget.nombre}</span>
+                . Esta acción es{" "}
+                <span className="font-bold text-red-600">irreversible</span>.
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-xs text-red-900 space-y-1">
+                <p className="font-bold">Se borrarán todos los datos:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-red-800">
+                  <li>Suscripción y accesos (dueño/cajero)</li>
+                  <li>Productos, costos fijos y configuración</li>
+                  <li>Ventas, fiados y cobros</li>
+                  <li>Gastos y efectivo en caja</li>
+                </ul>
+              </div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                Escribe el nombre para confirmar
+              </label>
+              <input
+                value={eliminarTexto}
+                onChange={(e) => { setEliminarTexto(e.target.value); if (errorEliminar) setErrorEliminar(null); }}
+                placeholder={eliminarTarget.nombre}
+                autoFocus
+                disabled={eliminando}
+                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-400 disabled:opacity-60"
+              />
+              {errorEliminar && <p className="text-red-500 text-sm mt-2">{errorEliminar}</p>}
+              <div className="flex gap-2 mt-5">
+                <button
+                  onClick={cerrarEliminar}
+                  disabled={eliminando}
+                  className="flex-1 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarEliminar}
+                  disabled={eliminando || eliminarTexto.trim() !== eliminarTarget.nombre}
+                  className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {eliminando ? "Eliminando…" : "Eliminar definitivamente"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-6 bg-white rounded-2xl p-3 shadow-sm">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-4 py-2 text-sm font-bold bg-gray-100 text-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-200"
+          >
+            ← Anterior
+          </button>
+          <div className="text-center">
+            <p className="text-sm font-bold text-gray-700">Página {page} de {totalPages}</p>
+            <p className="text-[10px] text-gray-400">{desde}–{hasta} de {total}</p>
+          </div>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-4 py-2 text-sm font-bold bg-gray-100 text-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-200"
+          >
+            Siguiente →
+          </button>
+        </div>
+      </div>
+    );
+  })();
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 max-w-3xl mx-auto pb-12">
       <div className="flex items-center justify-between mb-6">
@@ -289,6 +444,33 @@ export default function AdminPanel() {
         </button>
       </div>
 
+      {/* TABS */}
+      <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1">
+        <button
+          onClick={() => setTabAdmin("negocios")}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-colors ${
+            tabAdmin === "negocios"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Negocios
+        </button>
+        <button
+          onClick={() => setTabAdmin("abastos")}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-colors ${
+            tabAdmin === "abastos"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Abastos
+        </button>
+      </div>
+
+      {tabAdmin === "abastos" && <AdminAbastos />}
+
+      <div className={tabAdmin === "negocios" ? "" : "hidden"}>
       {recienCreado && (
         <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-5 mb-6">
           <p className="text-green-800 font-black text-lg mb-3">
@@ -375,180 +557,8 @@ export default function AdminPanel() {
         )}
       </div>
 
-      {cargando ? (
-        <p className="text-center text-gray-500 py-8">Cargando…</p>
-      ) : negocios.length === 0 ? (
-        <p className="text-center text-gray-500 py-8">
-          {search ? `Sin resultados para "${search}".` : "No hay negocios todavía."}
-        </p>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {negocios.map((n) => (
-              <div key={n.id} className="bg-white rounded-2xl p-5 shadow-sm">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-2.5 h-2.5 rounded-full ${semaforoColor[n.semaforo]}`} />
-                      <h2 className="font-black text-gray-800">{n.nombre}</h2>
-                      {!n.activo && (
-                        <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                          BLOQUEADO
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500">{n.mensaje}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-sm border-t border-gray-100 pt-3">
-                  <CredencialRow label="Link cajero" value={baseUrl + n.linkCajero} />
-                  <CredencialRow label="Clave cajero" value={n.claveCajero ?? "—"} />
-                  <CredencialRow label="Link dueño" value={baseUrl + n.linkDueno} />
-                  <CredencialRow label="Clave dueño" value={n.claveDueno ?? "—"} />
-                </div>
-
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <button
-                    onClick={() => ejecutar(n.id, "activar")}
-                    className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200"
-                  >
-                    Activar mensualidad
-                  </button>
-                  {n.activo ? (
-                    <button
-                      onClick={() => ejecutar(n.id, "bloquear")}
-                      className="text-xs font-bold bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200"
-                    >
-                      Bloquear
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => ejecutar(n.id, "reactivar")}
-                      className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200"
-                    >
-                      Reactivar
-                    </button>
-                  )}
-                  <button
-                    onClick={() => abrirEliminar(n)}
-                    className="text-xs font-bold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 ml-auto inline-flex items-center gap-1.5 shadow-sm"
-                    title="Eliminar negocio permanentemente"
-                  >
-                    <span aria-hidden>🗑</span> Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* MODAL ELIMINAR */}
-          {eliminarTarget && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-              onClick={cerrarEliminar}
-            >
-              <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border-t-4 border-red-600"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">
-                    ⚠️
-                  </div>
-                  <h3 className="text-lg font-black text-gray-800">
-                    Eliminar negocio
-                  </h3>
-                </div>
-
-                <p className="text-sm text-gray-700 mb-3">
-                  Vas a eliminar permanentemente{" "}
-                  <span className="font-bold text-gray-900">
-                    {eliminarTarget.nombre}
-                  </span>
-                  . Esta acción es{" "}
-                  <span className="font-bold text-red-600">irreversible</span>.
-                </p>
-
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-xs text-red-900 space-y-1">
-                  <p className="font-bold">Se borrarán todos los datos:</p>
-                  <ul className="list-disc list-inside space-y-0.5 text-red-800">
-                    <li>Suscripción y accesos (dueño/cajero)</li>
-                    <li>Productos, costos fijos y configuración</li>
-                    <li>Ventas, fiados y cobros</li>
-                    <li>Gastos y efectivo en caja</li>
-                  </ul>
-                </div>
-
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                  Escribe el nombre para confirmar
-                </label>
-                <input
-                  value={eliminarTexto}
-                  onChange={(e) => {
-                    setEliminarTexto(e.target.value);
-                    if (errorEliminar) setErrorEliminar(null);
-                  }}
-                  placeholder={eliminarTarget.nombre}
-                  autoFocus
-                  disabled={eliminando}
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-red-400 disabled:opacity-60"
-                />
-
-                {errorEliminar && (
-                  <p className="text-red-500 text-sm mt-2">{errorEliminar}</p>
-                )}
-
-                <div className="flex gap-2 mt-5">
-                  <button
-                    onClick={cerrarEliminar}
-                    disabled={eliminando}
-                    className="flex-1 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={confirmarEliminar}
-                    disabled={
-                      eliminando ||
-                      eliminarTexto.trim() !== eliminarTarget.nombre
-                    }
-                    className="flex-1 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {eliminando ? "Eliminando…" : "Eliminar definitivamente"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PAGINACIÓN */}
-          <div className="flex items-center justify-between mt-6 bg-white rounded-2xl p-3 shadow-sm">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-4 py-2 text-sm font-bold bg-gray-100 text-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-200"
-            >
-              ← Anterior
-            </button>
-            <div className="text-center">
-              <p className="text-sm font-bold text-gray-700">
-                Página {page} de {totalPages}
-              </p>
-              <p className="text-[10px] text-gray-400">
-                {desde}–{hasta} de {total}
-              </p>
-            </div>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="px-4 py-2 text-sm font-bold bg-gray-100 text-gray-700 rounded-lg disabled:opacity-40 hover:bg-gray-200"
-            >
-              Siguiente →
-            </button>
-          </div>
-        </>
-      )}
+      {listadoNegocios}
+      </div>
     </div>
   );
 }

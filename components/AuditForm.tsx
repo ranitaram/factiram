@@ -138,7 +138,7 @@ export default function AuditForm() {
       };
       fetchMessages();
     }
-  }, [result, formData]);
+  }, [result]);
 
   useEffect(() => { 
     window.scrollTo({ top: 0, behavior: "smooth" }); 

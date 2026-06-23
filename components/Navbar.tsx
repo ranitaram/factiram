@@ -11,6 +11,7 @@ export default function Navbar({ session }: { session: any }) {
   const links = [
     { name: "Método", href: "/#como-funciona" },
     { name: "La Guía", href: "/guia", highlight: true },
+    { name: "Abastos", href: "/panel/abastos/buscar" },
     { name: "Planes", href: "/planes" },
     { name: "Auditoría", href: "/audit" },
   ];

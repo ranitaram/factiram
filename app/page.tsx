@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import PricingTablePlanes from "@/components/PricingTablePlanes";
+import AbastosSearchPreview from "@/components/AbastosSearchPreview";
 
 export default function LandingPage() {
   return (
@@ -81,7 +82,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 2. EXPLICACIÓN */}
+      {/* 2. ABASTOS — COMPARADOR DE PRECIOS */}
+      <AbastosSearchPreview />
+
+      {/* 3. EXPLICACIÓN */}
       <section className="max-w-6xl mx-auto px-6">
         <div className="grid md:grid-cols-2 gap-8">
 
@@ -150,7 +154,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 3. CÓMO FUNCIONA */}
+      {/* 4. CÓMO FUNCIONA */}
       <section id="como-funciona" className="max-w-5xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-black text-midnight uppercase tracking-tighter italic">
@@ -200,7 +204,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 4. BENEFICIOS */}
+      {/* 5. BENEFICIOS */}
       <section className="bg-midnight -mx-6 px-6 py-24 md:py-32 rounded-[3rem] md:rounded-[4rem]">
         <div className="max-w-6xl mx-auto">
 
@@ -256,7 +260,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. TESTIMONIOS */}
+      {/* 6. TESTIMONIOS */}
       <section className="max-w-5xl mx-auto px-6">
         <div className="text-center space-y-16">
 
@@ -313,10 +317,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 6. PLANES */}
+      {/* 7. PLANES */}
       <PricingTablePlanes />
 
-      {/* 7. FAQ */}
+      {/* 8. FAQ */}
       <section className="max-w-3xl mx-auto px-6">
         <h2 className="text-3xl font-black text-center text-midnight uppercase tracking-tighter italic mb-12">
           Dudas frecuentes
@@ -361,7 +365,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 8. CTA FINAL */}
+      {/* 9. CTA FINAL */}
       <section className="text-center pb-10 px-6">
         <div className="bg-emerald-50 border border-emerald-100 p-12 rounded-[3rem] max-w-4xl mx-auto">
 

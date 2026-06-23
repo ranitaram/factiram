@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import {
   calcularFactiram,
@@ -84,14 +85,11 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
     inversionMercancia > 0 ? String(inversionMercancia) : ""
   );
   const [horaActual, setHoraActual] = useState(new Date().getHours());
+  const [cargandoResumen, setCargandoResumen] = useState(false);
 
-  // ── Estado de guardado ───────────────────────────────────
-  const [costosSave, setCostosSave] = useState<SaveState>("idle");
-  const [productosSave, setProductosSave] = useState<SaveState>("idle");
-  const [inversionSave, setInversionSave] = useState<SaveState>("idle");
-
-  // ── Polling unificado cada 60s, solo si la pestaña está visible ──
+  // ── Datos del día (vienen del API — carga manual) ────────
   const fetchResumen = useCallback(async () => {
+    setCargandoResumen(true);
     try {
       const res = await fetch(`/api/dashboard/resumen?negocioId=${negocioId}`, {
         cache: "no-store",
@@ -104,27 +102,19 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
       setRecuperadoMercanciaAcumulado(Number(json.recuperadoMercanciaAcumulado ?? 0));
     } catch (e) {
       console.error("Error al leer resumen", e);
+    } finally {
+      setCargandoResumen(false);
     }
   }, [negocioId]);
 
   useEffect(() => {
     fetchResumen();
-
-    const pollInterval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        fetchResumen();
-      }
-    }, 60000);
-
-    const horaInterval = setInterval(() => {
-      setHoraActual(new Date().getHours());
-    }, 60000);
-
-    return () => {
-      clearInterval(pollInterval);
-      clearInterval(horaInterval);
-    };
   }, [fetchResumen]);
+
+  // ── Estado de guardado ───────────────────────────────────
+  const [costosSave, setCostosSave] = useState<SaveState>("idle");
+  const [productosSave, setProductosSave] = useState<SaveState>("idle");
+  const [inversionSave, setInversionSave] = useState<SaveState>("idle");
 
   // ── Motor financiero (única fuente de cálculo) ───────────
   const input: FactiramInput = {
@@ -303,14 +293,40 @@ export default function DashboardDueno({ negocioId, negocioNombre, slug, data }:
           <h1 className="text-2xl font-black text-blue-600">FACTIRAM</h1>
           <p className="text-gray-500 text-sm">{negocioNombre}</p>
         </div>
-        <button
-        onClick={cerrarSesion}
-        className="absolute top-0 right-0 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
-        title="Cerrar sesión"
-        >
-         Salir
-        </button>
+        <div className="absolute top-0 right-0 flex gap-1.5">
+          <button
+            onClick={fetchResumen}
+            disabled={cargandoResumen}
+            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50"
+            title="Actualizar datos"
+          >
+            {cargandoResumen ? "..." : "↻"}
+          </button>
+          <button
+            onClick={cerrarSesion}
+            className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
+            title="Cerrar sesión"
+          >
+            Salir
+          </button>
+        </div>
 
+      </div>
+
+      {/* ABASTOS */}
+      <div className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Abastos</p>
+            <p className="text-sm text-gray-600">Compara precios de insumos entre proveedores</p>
+          </div>
+          <Link
+            href="/panel/abastos/buscar"
+            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            Abrir →
+          </Link>
+        </div>
       </div>
 
       {/* ALERTA DEL DÍA */}

@@ -36,8 +36,10 @@ export default function VistaCajero({
   const [montoGasto, setMontoGasto] = useState("");
   const [guardandoGasto, setGuardandoGasto] = useState(false);
   const efectivoEditadoRef = useRef(false);
+  const [cargandoResumen, setCargandoResumen] = useState(false);
 
   const fetchResumen = useCallback(async () => {
+    setCargandoResumen(true);
     try {
       const res = await fetch(`/api/dashboard/resumen?negocioId=${negocioId}`, {
         cache: "no-store",
@@ -55,17 +57,13 @@ export default function VistaCajero({
       }
     } catch (e) {
       console.error("Error al leer resumen", e);
+    } finally {
+      setCargandoResumen(false);
     }
   }, [negocioId]);
 
   useEffect(() => {
     fetchResumen();
-    const interval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        fetchResumen();
-      }
-    }, 60000);
-    return () => clearInterval(interval);
   }, [fetchResumen]);
 
   // Debounce: persistir el efectivo manual 600ms después de que el cajero deje de teclear
@@ -191,13 +189,23 @@ export default function VistaCajero({
             })}
           </p>
         </div>
-       <button
-  onClick={cerrarSesion}
-  className="absolute top-0 right-0 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
-  title="Cerrar sesión"
->
-  Salir
-</button>
+        <div className="absolute top-0 right-0 flex gap-1.5">
+          <button
+            onClick={fetchResumen}
+            disabled={cargandoResumen}
+            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50"
+            title="Actualizar datos"
+          >
+            {cargandoResumen ? "..." : "↻"}
+          </button>
+          <button
+            onClick={cerrarSesion}
+            className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
+            title="Cerrar sesión"
+          >
+            Salir
+          </button>
+        </div>
 
       </div>
 
