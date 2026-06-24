@@ -50,6 +50,17 @@ export default function AbastosSearchPreview() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q, buscar]);
 
+  function formatearFecha(): string {
+    return new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+  }
+
+  function formatearHora(): string {
+    const h = new Date().getHours();
+    const ampm = h >= 12 ? "pm" : "am";
+    const hora12 = h % 12 || 12;
+    return `${hora12} ${ampm}`;
+  }
+
   const proveedores = Array.from(
     new Set(resultados.flatMap((r) => r.precios.map((p) => p.proveedorNombre)))
   );
@@ -97,6 +108,9 @@ export default function AbastosSearchPreview() {
 
         {resultados.length > 0 && (
           <div className="overflow-x-auto">
+            <p className="px-1 pb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              Precios actualizados al {formatearFecha()} a las {formatearHora()}
+            </p>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">

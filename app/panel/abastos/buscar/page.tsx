@@ -67,6 +67,17 @@ export default function BuscarPage() {
     });
   }
 
+  function formatearFecha(): string {
+    return new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+  }
+
+  function formatearHora(): string {
+    const h = new Date().getHours();
+    const ampm = h >= 12 ? "pm" : "am";
+    const hora12 = h % 12 || 12;
+    return `${hora12} ${ampm}`;
+  }
+
   const proveedoresSet = new Set<string>();
   for (const r of resultados) {
     for (const p of r.precios) {
@@ -103,6 +114,11 @@ export default function BuscarPage() {
 
       {resultados.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-3 pt-3 pb-0">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              Precios actualizados al {formatearFecha()} a las {formatearHora()}
+            </p>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

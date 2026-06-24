@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { RefreshCw } from "lucide-react";
 import {
   calcularFactiram,
   type FactiramInput,
@@ -37,6 +38,7 @@ export default function VistaCajero({
   const [guardandoGasto, setGuardandoGasto] = useState(false);
   const efectivoEditadoRef = useRef(false);
   const [cargandoResumen, setCargandoResumen] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
 
   const fetchResumen = useCallback(async () => {
     setCargandoResumen(true);
@@ -50,6 +52,7 @@ export default function VistaCajero({
       setEfectivoSistema(Number(json.efectivoSistema ?? 0));
       setVentasPorProducto(json.ventasPorProducto ?? {});
       setGastosHoy(Number(json.gastosHoy ?? 0));
+      setUltimaActualizacion(new Date());
       const monto = Number(json.efectivoHoy ?? 0);
       setEfectivoManual(monto);
       if (!efectivoEditadoRef.current) {
@@ -170,6 +173,15 @@ export default function VistaCajero({
   const costoPorDia = totalCostosFijos / (data.diasLaborales || 26);
   const utilidadRealHoy = flujoRealHoy - costoPorDia;
 
+  function formatearHace(fecha: Date): string {
+    const segundos = Math.floor((Date.now() - fecha.getTime()) / 1000);
+    if (segundos < 60) return "menos de 1 min";
+    const minutos = Math.floor(segundos / 60);
+    if (minutos < 60) return `hace ${minutos} min`;
+    const horas = Math.floor(minutos / 60);
+    return `hace ${horas} h`;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 max-w-lg mx-auto pb-10">
 
@@ -189,15 +201,7 @@ export default function VistaCajero({
             })}
           </p>
         </div>
-        <div className="absolute top-0 right-0 flex gap-1.5">
-          <button
-            onClick={fetchResumen}
-            disabled={cargandoResumen}
-            className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50"
-            title="Actualizar datos"
-          >
-            {cargandoResumen ? "..." : "↻"}
-          </button>
+        <div className="absolute top-0 right-0">
           <button
             onClick={cerrarSesion}
             className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 border border-red-100 shadow-sm hover:bg-red-100 active:bg-red-200 transition-colors"
@@ -207,6 +211,23 @@ export default function VistaCajero({
           </button>
         </div>
 
+      </div>
+
+      {/* REFRESCAR DATOS */}
+      <div className="flex items-center justify-between bg-white rounded-xl px-4 py-3 mb-4 shadow-sm">
+        <p className="text-xs text-gray-400">
+          {ultimaActualizacion
+            ? `Última actualización: ${formatearHace(ultimaActualizacion)}`
+            : "Datos del día"}
+        </p>
+        <button
+          onClick={fetchResumen}
+          disabled={cargandoResumen}
+          className="inline-flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-700 active:bg-green-800 transition-colors shadow-sm disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${cargandoResumen ? "animate-spin" : ""}`} />
+          {cargandoResumen ? "Refrescando..." : "Refrescar datos"}
+        </button>
       </div>
 
       {/* DINERO REAL HOY */}
@@ -349,7 +370,7 @@ export default function VistaCajero({
           <button
             onClick={registrarGasto}
             disabled={guardandoGasto}
-            className="px-4 bg-red-500 text-white rounded-lg font-bold disabled:opacity-50"
+            className="shrink-0 whitespace-nowrap px-4 bg-red-500 text-white rounded-lg font-bold disabled:opacity-50"
           >
             {guardandoGasto ? "..." : "OK"}
           </button>
