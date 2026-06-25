@@ -327,6 +327,11 @@ function SeccionProductos() {
   const [precioInicial, setPrecioInicial] = useState("");
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editUnidad, setEditUnidad] = useState("kg");
+  const [editCategoria, setEditCategoria] = useState("Basicos");
+  const [guardando, setGuardando] = useState(false);
 
   const cargarTodo = useCallback(async (signal?: AbortSignal) => {
     setCargando(true);
@@ -413,6 +418,41 @@ function SeccionProductos() {
       setProductos((prev) =>
         prev.map((x) => (x.id === p.id ? { ...x, activo: p.activo } : x))
       );
+    }
+  }
+
+  function iniciarEdicion(p: Producto) {
+    setEditandoId(p.id);
+    setEditNombre(p.nombre);
+    setEditUnidad(p.unidad);
+    setEditCategoria(p.categoria);
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!editNombre.trim() || guardando) return;
+    setGuardando(true);
+    try {
+      const res = await fetch(`/api/admin/abastos/productos/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: editNombre.trim(),
+          unidad: editUnidad,
+          categoria: editCategoria,
+        }),
+      });
+      if (res.ok) {
+        setEditandoId(null);
+        cargarTodo();
+      }
+    } catch {
+      // silent
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -506,28 +546,92 @@ function SeccionProductos() {
               <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{cat}</h4>
               <div className="space-y-2">
                 {items.map((p) => (
-                  <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-bold ${p.activo ? "text-gray-800" : "text-gray-400"}`}>
-                        {p.nombre}
-                      </span>
-                      <span className="text-[10px] text-gray-400">({p.unidad})</span>
-                      {!p.activo && (
-                        <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                          INACTIVO
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => toggleActivo(p)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg ${
-                        p.activo
-                          ? "bg-red-100 text-red-700 hover:bg-red-200"
-                          : "bg-green-100 text-green-700 hover:bg-green-200"
-                      }`}
-                    >
-                      {p.activo ? "Desactivar" : "Activar"}
-                    </button>
+                  <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm">
+                    {editandoId === p.id ? (
+                      <div className="space-y-3">
+                        <input
+                          value={editNombre}
+                          onChange={(e) => setEditNombre(e.target.value)}
+                          placeholder="Nombre"
+                          className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+                        />
+                        <div className="flex gap-3">
+                          <select
+                            value={editUnidad}
+                            onChange={(e) => setEditUnidad(e.target.value)}
+                            className="flex-1 p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300 bg-white"
+                          >
+                            <option value="kg">kg</option>
+                            <option value="litro">litro</option>
+                            <option value="pieza">pieza</option>
+                            <option value="docena">docena</option>
+                            <option value="paquete">paquete</option>
+                          </select>
+                          <select
+                            value={editCategoria}
+                            onChange={(e) => setEditCategoria(e.target.value)}
+                            className="flex-1 p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300 bg-white"
+                          >
+                            <option value="Basicos">Basicos</option>
+                            <option value="Carnes">Carnes</option>
+                            <option value="Mariscos">Mariscos</option>
+                            <option value="Verduras">Verduras</option>
+                            <option value="Frutas">Frutas</option>
+                            <option value="Lacteos">Lacteos</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Tortilleria">Tortilleria</option>
+                            <option value="Varios">Varios</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => guardarEdicion(p.id)}
+                            disabled={guardando}
+                            className="flex-1 bg-blue-600 text-white py-2 rounded-xl font-bold text-sm disabled:opacity-50"
+                          >
+                            {guardando ? "Guardando…" : "Guardar"}
+                          </button>
+                          <button
+                            onClick={cancelarEdicion}
+                            className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${p.activo ? "text-gray-800" : "text-gray-400"}`}>
+                            {p.nombre}
+                          </span>
+                          <span className="text-[10px] text-gray-400">({p.unidad})</span>
+                          {!p.activo && (
+                            <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                              INACTIVO
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => iniciarEdicion(p)}
+                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => toggleActivo(p)}
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg ${
+                              p.activo
+                                ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                : "bg-green-100 text-green-700 hover:bg-green-200"
+                            }`}
+                          >
+                            {p.activo ? "Desactivar" : "Activar"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

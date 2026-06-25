@@ -13,17 +13,33 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await req.json();
-    if (typeof body.activo !== "boolean") {
-      return NextResponse.json({ error: "activo debe ser booleano" }, { status: 400 });
+    const data: Record<string, string | boolean> = {};
+    if (typeof body.activo === "boolean") {
+      data.activo = body.activo;
+    }
+    if (typeof body.nombre === "string" && body.nombre.trim()) {
+      data.nombre = body.nombre.trim();
+    }
+    if (typeof body.unidad === "string" && body.unidad.trim()) {
+      data.unidad = body.unidad.trim();
+    }
+    if (typeof body.categoria === "string" && body.categoria.trim()) {
+      data.categoria = body.categoria.trim();
+    }
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
     }
     const producto = await prisma.abastosProducto.update({
       where: { id },
-      data: { activo: body.activo },
+      data,
     });
     return NextResponse.json({ producto });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json({ error: "Ya existe un producto con ese nombre" }, { status: 409 });
     }
     if (e instanceof SyntaxError) {
       return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
