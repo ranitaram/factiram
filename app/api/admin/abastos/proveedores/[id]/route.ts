@@ -13,12 +13,25 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await req.json();
-    if (typeof body.activo !== "boolean") {
-      return NextResponse.json({ error: "activo debe ser booleano" }, { status: 400 });
+    const data: Record<string, string | boolean | null> = {};
+    if (typeof body.activo === "boolean") {
+      data.activo = body.activo;
+    }
+    if (typeof body.nombre === "string" && body.nombre.trim()) {
+      data.nombre = body.nombre.trim();
+    }
+    if (body.direccion !== undefined) {
+      data.direccion = body.direccion !== "" ? String(body.direccion).trim() : null;
+    }
+    if (body.telefono !== undefined) {
+      data.telefono = body.telefono !== "" ? String(body.telefono).trim() : null;
+    }
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
     }
     const proveedor = await prisma.abastosProveedor.update({
       where: { id },
-      data: { activo: body.activo },
+      data,
     });
     return NextResponse.json({ proveedor });
   } catch (e: unknown) {

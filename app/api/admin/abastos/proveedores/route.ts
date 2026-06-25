@@ -21,19 +21,23 @@ export async function POST(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  let body: { nombre?: string };
+  let body: { nombre?: string; direccion?: string; telefono?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
   try {
-    const { nombre } = body;
+    const { nombre, direccion, telefono } = body;
     if (!nombre || typeof nombre !== "string" || !nombre.trim()) {
       return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
     }
     const proveedor = await prisma.abastosProveedor.create({
-      data: { nombre: nombre.trim() },
+      data: {
+        nombre: nombre.trim(),
+        ...(direccion !== undefined && { direccion: direccion.trim() || null }),
+        ...(telefono !== undefined && { telefono: telefono.trim() || null }),
+      },
     });
     return NextResponse.json({ proveedor });
   } catch (e: unknown) {

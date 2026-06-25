@@ -419,6 +419,8 @@ model AbastosProducto {
 model AbastosProveedor {
   id        String   @id @default(cuid())
   nombre    String   @unique
+  direccion String?
+  telefono  String?
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

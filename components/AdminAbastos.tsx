@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Search, ShoppingCart, BarChart3, Users } from "lucide-react";
+import BuscadorProducto from "./BuscadorProducto";
 
-type Proveedor = { id: string; nombre: string; activo: boolean };
+type Proveedor = { id: string; nombre: string; direccion?: string | null; telefono?: string | null; activo: boolean };
 type Producto = { id: string; nombre: string; unidad: string; categoria: string; activo: boolean };
 type Reporte = {
   id: string;
@@ -66,8 +67,15 @@ function SeccionProveedores() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nombre, setNombre] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editDireccion, setEditDireccion] = useState("");
+  const [editTelefono, setEditTelefono] = useState("");
+  const [guardando, setGuardando] = useState(false);
 
   const cargar = useCallback(async (signal?: AbortSignal) => {
     setCargando(true);
@@ -104,7 +112,11 @@ function SeccionProveedores() {
       const res = await fetch("/api/admin/abastos/proveedores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombre.trim() }),
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          direccion: direccion.trim() || undefined,
+          telefono: telefono.trim() || undefined,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -112,6 +124,8 @@ function SeccionProveedores() {
         return;
       }
       setNombre("");
+      setDireccion("");
+      setTelefono("");
       cargar();
     } catch {
       setError("Error de conexión");
@@ -142,6 +156,41 @@ function SeccionProveedores() {
     }
   }
 
+  function iniciarEdicion(p: Proveedor) {
+    setEditandoId(p.id);
+    setEditNombre(p.nombre);
+    setEditDireccion(p.direccion || "");
+    setEditTelefono(p.telefono || "");
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!editNombre.trim() || guardando) return;
+    setGuardando(true);
+    try {
+      const res = await fetch(`/api/admin/abastos/proveedores/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: editNombre.trim(),
+          direccion: editDireccion.trim() || "",
+          telefono: editTelefono.trim() || "",
+        }),
+      });
+      if (res.ok) {
+        setEditandoId(null);
+        cargar();
+      }
+    } catch {
+      // silent
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   return (
     <div>
       <form onSubmit={crear} className="bg-white rounded-2xl p-5 shadow-sm mb-4 space-y-3">
@@ -149,8 +198,20 @@ function SeccionProveedores() {
         <input
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre del proveedor"
+          placeholder="Nombre del proveedor *"
           required
+          className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+        />
+        <input
+          value={direccion}
+          onChange={(e) => setDireccion(e.target.value)}
+          placeholder="Dirección (opcional)"
+          className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+        />
+        <input
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="Teléfono (opcional)"
           className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
         />
         <button
@@ -170,27 +231,83 @@ function SeccionProveedores() {
       ) : (
         <div className="space-y-2">
           {proveedores.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm flex items-center justify-between">
-              <div>
-                <span className={`font-bold ${p.activo ? "text-gray-800" : "text-gray-400"}`}>
-                  {p.nombre}
-                </span>
-                {!p.activo && (
-                  <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">
-                    INACTIVO
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => toggleActivo(p)}
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg ${
-                  p.activo
-                    ? "bg-red-100 text-red-700 hover:bg-red-200"
-                    : "bg-green-100 text-green-700 hover:bg-green-200"
-                }`}
-              >
-                {p.activo ? "Desactivar" : "Activar"}
-              </button>
+            <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm">
+              {editandoId === p.id ? (
+                <div className="space-y-3">
+                  <input
+                    value={editNombre}
+                    onChange={(e) => setEditNombre(e.target.value)}
+                    placeholder="Nombre"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+                  />
+                  <input
+                    value={editDireccion}
+                    onChange={(e) => setEditDireccion(e.target.value)}
+                    placeholder="Dirección"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+                  />
+                  <input
+                    value={editTelefono}
+                    onChange={(e) => setEditTelefono(e.target.value)}
+                    placeholder="Teléfono"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => guardarEdicion(p.id)}
+                      disabled={guardando}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded-xl font-bold text-sm disabled:opacity-50"
+                    >
+                      {guardando ? "Guardando…" : "Guardar"}
+                    </button>
+                    <button
+                      onClick={cancelarEdicion}
+                      className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold ${p.activo ? "text-gray-800" : "text-gray-400"}`}>
+                        {p.nombre}
+                      </span>
+                      {!p.activo && (
+                        <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                          INACTIVO
+                        </span>
+                      )}
+                    </div>
+                    {(p.direccion || p.telefono) && (
+                      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                        {p.direccion && <p>📍 {p.direccion}</p>}
+                        {p.telefono && <p>📞 {p.telefono}</p>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => iniciarEdicion(p)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => toggleActivo(p)}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg ${
+                        p.activo
+                          ? "bg-red-100 text-red-700 hover:bg-red-200"
+                          : "bg-green-100 text-green-700 hover:bg-green-200"
+                      }`}
+                    >
+                      {p.activo ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -201,38 +318,47 @@ function SeccionProveedores() {
 
 function SeccionProductos() {
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [cargando, setCargando] = useState(true);
   const [nombre, setNombre] = useState("");
   const [unidad, setUnidad] = useState("kg");
   const [categoria, setCategoria] = useState("Basicos");
+  const [proveedorId, setProveedorId] = useState("");
+  const [precioInicial, setPrecioInicial] = useState("");
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cargar = useCallback(async (signal?: AbortSignal) => {
+  const cargarTodo = useCallback(async (signal?: AbortSignal) => {
     setCargando(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/abastos/productos", { signal });
-      if (!res.ok) {
-        setProductos([]);
-        return;
-      }
-      const data = await res.json();
-      if (data && Array.isArray(data.productos)) {
-        setProductos(data.productos);
+      const [resP, resProv] = await Promise.all([
+        fetch("/api/admin/abastos/productos", { signal }),
+        fetch("/api/admin/abastos/proveedores", { signal }),
+      ]);
+      if (resP.ok) {
+        const data = await resP.json();
+        setProductos(Array.isArray(data?.productos) ? data.productos : []);
       } else {
         setProductos([]);
+      }
+      if (resProv.ok) {
+        const data = await resProv.json();
+        setProveedores(Array.isArray(data?.proveedores) ? data.proveedores : []);
+      } else {
+        setProveedores([]);
       }
     } catch (e) {
       if ((e as { name?: string }).name === "AbortError") return;
       setProductos([]);
+      setProveedores([]);
       setError("Error de conexión");
     } finally {
       setCargando(false);
     }
   }, []);
 
-  useFetchConAbort((signal) => cargar(signal), [cargar]);
+  useFetchConAbort((signal) => cargarTodo(signal), [cargarTodo]);
 
   async function crear(e: React.FormEvent) {
     e.preventDefault();
@@ -240,10 +366,17 @@ function SeccionProductos() {
     setCreando(true);
     setError(null);
     try {
+      const body: Record<string, unknown> = { nombre: nombre.trim(), unidad, categoria };
+      const provVal = proveedorId;
+      const precVal = precioInicial;
+      if (provVal && precVal && Number(precVal) > 0) {
+        body.proveedorId = provVal;
+        body.precio = Number(precVal);
+      }
       const res = await fetch("/api/admin/abastos/productos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombre.trim(), unidad, categoria }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -251,7 +384,9 @@ function SeccionProductos() {
         return;
       }
       setNombre("");
-      cargar();
+      setPrecioInicial("");
+      setProveedorId("");
+      cargarTodo();
     } catch {
       setError("Error de conexión");
     } finally {
@@ -327,6 +462,31 @@ function SeccionProductos() {
             <option value="Varios">Varios</option>
           </select>
         </div>
+        <div className="flex gap-3">
+          <select
+            value={proveedorId}
+            onChange={(e) => setProveedorId(e.target.value)}
+            className="flex-1 p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300 bg-white"
+          >
+            <option value="">Proveedor (opcional)</option>
+            {proveedores.filter((p) => p.activo).map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+          <input
+            value={precioInicial}
+            onChange={(e) => setPrecioInicial(e.target.value)}
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Precio $ (opcional)"
+            disabled={!proveedorId}
+            className="flex-1 p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300 disabled:opacity-40"
+          />
+        </div>
+        <p className="text-[10px] text-gray-400 -mt-1">
+          Si agregas proveedor + precio, se crea el precio verificado automáticamente.
+        </p>
         <button
           type="submit"
           disabled={creando}
@@ -405,7 +565,9 @@ function SeccionPrecios() {
       const dataProv = await resProv.json();
       setProductos(
         Array.isArray(dataP?.productos)
-          ? dataP.productos.filter((p: Producto) => p.activo)
+          ? (dataP.productos as Producto[])
+              .filter((p: Producto) => p.activo)
+              .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
           : []
       );
       setProveedores(
@@ -469,17 +631,11 @@ function SeccionPrecios() {
       <form onSubmit={enviar} className="space-y-3">
         <div>
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Producto</label>
-          <select
+          <BuscadorProducto
+            productos={productos}
             value={productoId}
-            onChange={(e) => setProductoId(e.target.value)}
-            required
-            className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-300 bg-white"
-          >
-            <option value="">Seleccionar producto…</option>
-            {productos.map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre} ({p.unidad})</option>
-            ))}
-          </select>
+            onChange={setProductoId}
+          />
         </div>
         <div>
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Proveedor</label>
