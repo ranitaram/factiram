@@ -23,7 +23,9 @@ export default function AbastosSearchPreview() {
   const [resultados, setResultados] = useState<ResultadoBusqueda[]>([]);
   const [cargando, setCargando] = useState(false);
   const [mostroResultados, setMostroResultados] = useState(false);
+  const [scrollAlFinal, setScrollAlFinal] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const buscar = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -122,46 +124,64 @@ export default function AbastosSearchPreview() {
         )}
 
         {resultados.length > 0 && (
-          <div className="overflow-x-auto">
-            <p className="px-1 pb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+          <div>
+            <p className="px-1 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
               Precios actualizados al {formatearFecha()} a las {formatearHora()}
             </p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Insumo</th>
-                  {proveedores.map((nom) => (
-                    <th key={nom} className="text-right pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-                      {nom}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {resultados.map((r) => (
-                  <tr key={r.productoId} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3 pr-4 font-bold text-midnight whitespace-nowrap">
-                      {r.productoNombre}
-                      <span className="font-normal text-gray-400 ml-1">/{r.unidad}</span>
-                    </td>
-                    {proveedores.map((nom) => {
-                      const p = r.precios.find((pr) => pr.proveedorNombre === nom);
-                      return (
-                        <td key={nom} className="py-3 pl-4 text-right font-bold whitespace-nowrap">
-                          {p ? (
-                            <span className="text-midnight">
-                              ${p.precio.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
+            <p className="md:hidden px-1 pb-2 text-[10px] text-gray-300 italic animate-pulse">
+              ← Desliza para ver precios
+            </p>
+            <div className="relative">
+              <div
+                ref={scrollRef}
+                onScroll={() => {
+                  const el = scrollRef.current;
+                  if (!el) return;
+                  setScrollAlFinal(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+                }}
+                className="overflow-x-auto"
+              >
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Insumo</th>
+                      {proveedores.map((nom) => (
+                        <th key={nom} className="text-right pb-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                          {nom}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resultados.map((r) => (
+                      <tr key={r.productoId} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 pr-4 font-bold text-midnight whitespace-nowrap">
+                          {r.productoNombre}
+                          <span className="font-normal text-gray-400 ml-1">/{r.unidad}</span>
                         </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        {proveedores.map((nom) => {
+                          const p = r.precios.find((pr) => pr.proveedorNombre === nom);
+                          return (
+                            <td key={nom} className="py-3 pl-4 text-right font-bold whitespace-nowrap">
+                              {p ? (
+                                <span className="text-midnight">
+                                  ${p.precio.toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!scrollAlFinal && (
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              )}
+            </div>
           </div>
         )}
 

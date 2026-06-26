@@ -25,7 +25,9 @@ export default function BuscarPage() {
   const [resultados, setResultados] = useState<ResultadoBusqueda[]>([]);
   const [cargando, setCargando] = useState(false);
   const [agregado, setAgregado] = useState<Set<string>>(new Set());
+  const [scrollAlFinal, setScrollAlFinal] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const buscar = useCallback(async (query: string) => {
@@ -133,65 +135,81 @@ export default function BuscarPage() {
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
               Precios actualizados al {formatearFecha()} a las {formatearHora()}
             </p>
+            <p className="md:hidden text-[10px] text-gray-300 italic animate-pulse pb-1">
+              ← Desliza para ver precios
+            </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Insumo</th>
-                  {proveedores.map((nom) => (
-                    <th key={nom} className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-                      {nom}
-                    </th>
-                  ))}
-                  <th className="w-20"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {resultados.map((r) => (
-                  <tr key={r.productoId} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="p-3 font-bold text-midnight whitespace-nowrap">
-                      {r.productoNombre}
-                      <span className="font-normal text-gray-400 ml-1">/ {r.unidad}</span>
-                    </td>
-                    {proveedores.map((nom) => {
-                      const p = r.precios.find((pr) => pr.proveedorNombre === nom);
-                      return (
-                        <td key={nom} className="p-3 text-right font-bold whitespace-nowrap">
-                          {p ? (
-                            <span className="text-midnight">
-                              ${p.precio.toFixed(2)}
-                              {p.unidad !== r.unidad && (
-                                <span className="text-[10px] font-normal text-gray-400 ml-1">/{p.unidad}</span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="p-3 text-right">
-                      {agregado.has(r.productoId) ? (
-                        <button
-                          onClick={() => router.push("/panel/abastos/lista")}
-                          className="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors"
-                        >
-                          ✓ En lista
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => agregar(r)}
-                          className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition-colors"
-                        >
-                          + Agregar
-                        </button>
-                      )}
-                    </td>
+          <div className="relative">
+            <div
+              ref={scrollRef}
+              onScroll={() => {
+                const el = scrollRef.current;
+                if (!el) return;
+                setScrollAlFinal(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+              }}
+              className="overflow-x-auto"
+            >
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Insumo</th>
+                    {proveedores.map((nom) => (
+                      <th key={nom} className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                        {nom}
+                      </th>
+                    ))}
+                    <th className="sticky right-0 bg-gray-50 w-20 z-10 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {resultados.map((r) => (
+                    <tr key={r.productoId} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="p-3 font-bold text-midnight whitespace-nowrap">
+                        {r.productoNombre}
+                        <span className="font-normal text-gray-400 ml-1">/ {r.unidad}</span>
+                      </td>
+                      {proveedores.map((nom) => {
+                        const p = r.precios.find((pr) => pr.proveedorNombre === nom);
+                        return (
+                          <td key={nom} className="p-3 text-right font-bold whitespace-nowrap">
+                            {p ? (
+                              <span className="text-midnight">
+                                ${p.precio.toFixed(2)}
+                                {p.unidad !== r.unidad && (
+                                  <span className="text-[10px] font-normal text-gray-400 ml-1">/{p.unidad}</span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="sticky right-0 bg-white p-3 text-right z-10 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.1)]">
+                        {agregado.has(r.productoId) ? (
+                          <button
+                            onClick={() => router.push("/panel/abastos/lista")}
+                            className="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors"
+                          >
+                            ✓ En lista
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => agregar(r)}
+                            className="text-xs font-bold bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition-colors"
+                          >
+                            + Agregar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!scrollAlFinal && (
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent" />
+            )}
           </div>
         </div>
       )}
