@@ -653,12 +653,15 @@ function SeccionPrecios() {
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ tipo: "ok" | "error"; msg: string } | null>(null);
+  const [desactualizados, setDesactualizados] = useState<ProductoDesactualizado[]>([]);
+  const [bannerAbierto, setBannerAbierto] = useState(true);
 
   useFetchConAbort(async (signal) => {
     try {
-      const [resP, resProv] = await Promise.all([
+      const [resP, resProv, resDes] = await Promise.all([
         fetch("/api/admin/abastos/productos", { signal }),
         fetch("/api/admin/abastos/proveedores", { signal }),
+        fetch("/api/admin/abastos/productos/desactualizados", { signal }),
       ]);
       if (!resP.ok || !resProv.ok) {
         setProductos([]);
@@ -679,6 +682,10 @@ function SeccionPrecios() {
           ? dataProv.proveedores.filter((p: Proveedor) => p.activo)
           : []
       );
+      if (resDes.ok) {
+        const dataDes = await resDes.json();
+        setDesactualizados(Array.isArray(dataDes?.productos) ? dataDes.productos : []);
+      }
     } catch (e) {
       if ((e as { name?: string }).name === "AbortError") return;
       setProductos([]);
@@ -727,10 +734,74 @@ function SeccionPrecios() {
 
   if (cargando) return <p className="text-center text-gray-500 py-8">Cargando…</p>;
 
+  const pendientes = desactualizados.filter((d) => d.sinPrecio);
+  const vencidos = desactualizados.filter((d) => !d.sinPrecio);
+
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
-      <h3 className="font-black text-gray-800">Cargar precio directo</h3>
-      <p className="text-xs text-gray-500">Este precio se marca como verificado y aparece inmediatamente.</p>
+    <div className="space-y-4">
+      {desactualizados.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setBannerAbierto(!bannerAbierto)}
+            className="w-full flex items-center justify-between p-4 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🟠</span>
+              <span className="font-bold text-sm text-orange-800">
+                {desactualizados.length} producto{desactualizados.length !== 1 ? "s" : ""} necesita{desactualizados.length === 1 ? "" : "n"} actualización
+              </span>
+            </div>
+            <span className="text-orange-500 text-sm">{bannerAbierto ? "▲" : "▼"}</span>
+          </button>
+
+          {bannerAbierto && (
+            <div className="px-4 pb-4 space-y-2">
+              {pendientes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1.5">
+                    Sin precio registrado
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pendientes.map((p) => (
+                      <span key={p.id} className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-lg">
+                        {p.nombre}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {vencidos.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1.5">
+                    Último precio hace +{14} días
+                  </p>
+                  <div className="space-y-1">
+                    {vencidos.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2">
+                        <div>
+                          <span className="font-bold text-gray-800">{p.nombre}</span>
+                          <span className="text-gray-400 ml-1 text-[10px]">({p.unidad})</span>
+                        </div>
+                        <div className="text-right text-xs text-gray-500">
+                          <span className="font-bold text-orange-600">{p.diasDesdeActualizacion} días</span>
+                          {p.ultimoProveedor && (
+                            <span className="ml-2">· {p.ultimoProveedor}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 className="font-black text-gray-800">Cargar precio directo</h3>
+        <p className="text-xs text-gray-500">Este precio se marca como verificado y aparece inmediatamente.</p>
 
       <form onSubmit={enviar} className="space-y-3">
         <div>
@@ -791,6 +862,7 @@ function SeccionPrecios() {
           </p>
         )}
       </form>
+    </div>
     </div>
   );
 }
@@ -905,11 +977,25 @@ function SeccionReportes() {
   );
 }
 
+type ProductoDesactualizado = {
+  id: string;
+  nombre: string;
+  unidad: string;
+  categoria: string;
+  ultimoPrecio: string | null;
+  ultimoProveedor: string | null;
+  diasDesdeActualizacion: number | null;
+  sinPrecio: boolean;
+  proveedoresConPrecio: number;
+};
+
 type MetricasData = {
   hoy: { busquedas: number; agregadosLista: number; comparaciones: number; reportes: number; total: number };
   semana: { busquedas: number; agregadosLista: number; comparaciones: number; reportes: number; total: number };
   cobertura: { porcentaje: number; productosConPrecio: number; totalProductos: number };
   productosSinPrecio: string[];
+  productosDesactualizados: ProductoDesactualizado[];
+  umbralDias: number;
   ultimosEventos: { id: string; tipo: string; metadata: Record<string, unknown>; fecha: string }[];
 };
 
@@ -1007,6 +1093,42 @@ function SeccionMetricas() {
               <span key={nombre} className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-lg">
                 {nombre}
               </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.productosDesactualizados && data.productosDesactualizados.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">
+              Productos desactualizados (+{data.umbralDias} días)
+            </p>
+            <span className="text-2xl font-black text-orange-600">{data.productosDesactualizados.length}</span>
+          </div>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {data.productosDesactualizados.map((p) => (
+              <div key={p.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <span className="font-bold text-gray-800">{p.nombre}</span>
+                  <span className="text-gray-400 ml-1 text-[10px]">({p.unidad})</span>
+                  {p.sinPrecio && (
+                    <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded ml-1">
+                      SIN PRECIO
+                    </span>
+                  )}
+                </div>
+                <div className="text-right text-xs text-gray-500 shrink-0 ml-2">
+                  {p.diasDesdeActualizacion !== null ? (
+                    <span className="font-bold text-orange-600">{p.diasDesdeActualizacion} días</span>
+                  ) : (
+                    <span className="text-red-500">—</span>
+                  )}
+                  {p.ultimoProveedor && (
+                    <span className="ml-1">· {p.ultimoProveedor}</span>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         </div>

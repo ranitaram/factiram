@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getProductosDesactualizados } from "@/lib/abastos-queries";
 
 export async function GET() {
   try {
@@ -7,7 +8,7 @@ export async function GET() {
     const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
     const inicioSemana = new Date(inicioHoy.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [eventosHoy, eventosSemana, totalProductos, preciosVerificados, ultimosPrecios, ultimosEventos] =
+    const [eventosHoy, eventosSemana, totalProductos, preciosVerificados, ultimosPrecios, ultimosEventos, desactualizados] =
       await Promise.all([
         prisma.abastosEvento.groupBy({
           by: ["tipo"],
@@ -36,6 +37,7 @@ export async function GET() {
           take: 20,
           select: { id: true, tipo: true, metadata: true, createdAt: true },
         }),
+        getProductosDesactualizados(14),
       ]);
 
     const productosConPrecio = preciosVerificados.length;
@@ -74,6 +76,8 @@ export async function GET() {
         totalProductos,
       },
       productosSinPrecio: productosSinPrecio.map((p) => p.nombre),
+      productosDesactualizados: desactualizados,
+      umbralDias: 14,
       ultimosEventos: ultimosEventos.map((e) => ({
         id: e.id,
         tipo: e.tipo,
