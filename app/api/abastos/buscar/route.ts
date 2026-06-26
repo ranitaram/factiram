@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getPreciosActuales } from "@/lib/abastos-queries";
-import { trackEvent } from "@/lib/abastos-track";
 
 const MAX_Q_LENGTH = 200;
 const MAX_RESULTADOS = 50;
@@ -36,8 +35,6 @@ export async function GET(req: Request) {
       categoria: prod.categoria,
       precios: preciosPorProducto.get(prod.id) ?? [],
     }));
-
-    trackEvent("busqueda", { query: q, resultados: resultados.length });
 
     return NextResponse.json({ resultados });
   } catch {

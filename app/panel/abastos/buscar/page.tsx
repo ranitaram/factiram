@@ -51,6 +51,21 @@ export default function BuscarPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q, buscar]);
 
+  const trackRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    if (trackRef.current) clearTimeout(trackRef.current);
+    if (q.trim().length >= 2 && resultados.length > 0) {
+      trackRef.current = setTimeout(() => {
+        fetch("/api/abastos/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tipo: "busqueda", metadata: { query: q, resultados: resultados.length } }),
+        }).catch(() => {});
+      }, 1000);
+    }
+    return () => { if (trackRef.current) clearTimeout(trackRef.current); };
+  }, [q, resultados]);
+
   function agregar(r: ResultadoBusqueda) {
     const item: ItemListaStorage = {
       productoId: r.productoId,
