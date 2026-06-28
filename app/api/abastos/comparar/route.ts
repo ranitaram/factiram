@@ -48,9 +48,24 @@ export async function POST(req: Request) {
     const precios = await getPreciosActualesFlat(productoIds);
     const resultado = calcularComparacion(lista, precios);
 
+    const proveedorIds = resultado.totalesProveedores.map((p) => p.proveedorId);
+    const proveedores = await prisma.abastosProveedor.findMany({
+      where: { id: { in: proveedorIds } },
+      select: { id: true, telefono: true },
+    });
+    const telefonoMap = new Map(proveedores.map((p) => [p.id, p.telefono]));
+
+    const response = {
+      ...resultado,
+      totalesProveedores: resultado.totalesProveedores.map((p) => ({
+        ...p,
+        telefono: telefonoMap.get(p.proveedorId) ?? null,
+      })),
+    };
+
     trackEvent("comparar", { items: lista.length, productos: productoIds.length });
 
-    return NextResponse.json(resultado);
+    return NextResponse.json(response);
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

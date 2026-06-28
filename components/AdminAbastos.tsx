@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Search, ShoppingCart, BarChart3, Users } from "lucide-react";
+import { Loader2, Search, ShoppingCart, BarChart3, Users, MessageCircle } from "lucide-react";
 import BuscadorProducto from "./BuscadorProducto";
 
 type Proveedor = { id: string; nombre: string; direccion?: string | null; telefono?: string | null; activo: boolean };
@@ -990,13 +990,13 @@ type ProductoDesactualizado = {
 };
 
 type MetricasData = {
-  hoy: { busquedas: number; agregadosLista: number; comparaciones: number; reportes: number; total: number };
-  semana: { busquedas: number; agregadosLista: number; comparaciones: number; reportes: number; total: number };
+  hoy: { busquedas: number; agregadosLista: number; comparaciones: number; reportes: number; contactarWhatsapp: number; total: number };
+  semana: { busquedas: number; agregadosLista: number; comparaciones: number; reportes: number; contactarWhatsapp: number; total: number };
   cobertura: { porcentaje: number; productosConPrecio: number; totalProductos: number };
   productosSinPrecio: string[];
   productosDesactualizados: ProductoDesactualizado[];
+  whatsappPorProveedor: { proveedorNombre: string; hoy: number; semana: number; mes: number }[];
   umbralDias: number;
-  ultimosEventos: { id: string; tipo: string; metadata: Record<string, unknown>; fecha: string }[];
 };
 
 const LABELS: Record<string, string> = {
@@ -1004,6 +1004,7 @@ const LABELS: Record<string, string> = {
   agregar_lista: "Agregar a lista",
   comparar: "Comparación",
   reportar: "Reporte",
+  contactar_whatsapp: "WhatsApp",
 };
 
 const ICONS: Record<string, typeof Search> = {
@@ -1011,12 +1012,37 @@ const ICONS: Record<string, typeof Search> = {
   agregar_lista: ShoppingCart,
   comparar: BarChart3,
   reportar: Users,
+  contactar_whatsapp: MessageCircle as unknown as typeof Search,
 };
 
 function SeccionMetricas() {
   const [data, setData] = useState<MetricasData | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [eventos, setEventos] = useState<{ id: string; tipo: string; metadata: Record<string, unknown>; fecha: string }[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [cargandoEventos, setCargandoEventos] = useState(true);
+
+  const cargarEventos = useCallback(async (nuevoOffset = 0) => {
+    if (nuevoOffset === 0) setCargandoEventos(true);
+    try {
+      const res = await fetch(`/api/admin/abastos/metricas/eventos?offset=${nuevoOffset}&limit=10`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (nuevoOffset === 0) {
+        setEventos(json.eventos);
+      } else {
+        setEventos((prev) => [...prev, ...json.eventos]);
+      }
+      setOffset(json.offset);
+      setHasMore(json.hasMore);
+    } catch {
+      // silent
+    } finally {
+      setCargandoEventos(false);
+    }
+  }, []);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -1032,6 +1058,10 @@ function SeccionMetricas() {
       .finally(() => setCargando(false));
     return () => ctl.abort();
   }, []);
+
+  useEffect(() => {
+    cargarEventos(0);
+  }, [cargarEventos]);
 
   if (cargando) {
     return (
@@ -1051,7 +1081,7 @@ function SeccionMetricas() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
             Búsquedas hoy
@@ -1059,6 +1089,16 @@ function SeccionMetricas() {
           <p className="text-3xl font-black text-midnight">{data.hoy.busquedas}</p>
           <p className="text-xs text-gray-400 mt-1">
             {data.semana.busquedas} en la última semana
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Contactos WhatsApp
+          </p>
+          <p className="text-3xl font-black text-emerald-600">{data.hoy.contactarWhatsapp}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {data.semana.contactarWhatsapp} en la última semana
           </p>
         </div>
 
@@ -1134,51 +1174,103 @@ function SeccionMetricas() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-midnight">Últimos eventos</h3>
-        </div>
-        {data.ultimosEventos.length === 0 ? (
-          <div className="p-8 text-center text-sm text-gray-400">
-            No hay eventos registrados aún
+      {data.whatsappPorProveedor && data.whatsappPorProveedor.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-100 flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-emerald-500" />
+            <h3 className="text-sm font-bold text-midnight">Contactos WhatsApp por proveedor</h3>
           </div>
-        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Evento</th>
-                  <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Detalle</th>
-                  <th className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fecha</th>
+                  <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Proveedor</th>
+                  <th className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hoy</th>
+                  <th className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Semana</th>
+                  <th className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mes</th>
                 </tr>
               </thead>
               <tbody>
-                {data.ultimosEventos.map((ev) => {
-                  const Icon = ICONS[ev.tipo] ?? Search;
-                  const metadata = ev.metadata as Record<string, unknown> | undefined;
-                  return (
-                    <tr key={ev.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                      <td className="p-3">
-                        <span className="inline-flex items-center gap-1.5 font-bold text-midnight">
-                          <Icon className="w-3.5 h-3.5 text-gray-400" />
-                          {LABELS[ev.tipo] ?? ev.tipo}
-                        </span>
-                      </td>
-                      <td className="p-3 text-gray-500 text-xs">
-                        {ev.tipo === "busqueda" && `"${String(metadata?.query ?? "")}" → ${String(metadata?.resultados ?? "")} resultados`}
-                        {ev.tipo === "agregar_lista" && String(metadata?.productoNombre ?? "")}
-                        {ev.tipo === "comparar" && `${String(metadata?.items ?? "")} items`}
-                        {ev.tipo === "reportar" && `prod:${String(metadata?.productoId ?? "").slice(0, 8)}...`}
-                      </td>
-                      <td className="p-3 text-right text-xs text-gray-400 whitespace-nowrap">
-                        {new Date(ev.fecha).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {data.whatsappPorProveedor.map((r) => (
+                  <tr key={r.proveedorNombre} className="border-b border-gray-50 hover:bg-gray-50/50">
+                    <td className="p-3 font-bold text-gray-800">{r.proveedorNombre}</td>
+                    <td className={`p-3 text-right font-bold ${r.hoy > 0 ? "text-emerald-600" : "text-gray-400"}`}>{r.hoy}</td>
+                    <td className={`p-3 text-right font-bold ${r.semana > 0 ? "text-emerald-600" : "text-gray-400"}`}>{r.semana}</td>
+                    <td className={`p-3 text-right font-bold ${r.mes > 0 ? "text-emerald-600" : "text-gray-400"}`}>{r.mes}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-midnight">Últimos eventos</h3>
+        </div>
+        {cargandoEventos ? (
+          <div className="flex items-center justify-center py-8 text-gray-500">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Cargando eventos…
+          </div>
+        ) : eventos.length === 0 ? (
+          <div className="p-8 text-center text-sm text-gray-400">
+            No hay eventos registrados aún
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Evento</th>
+                    <th className="text-left p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Detalle</th>
+                    <th className="text-right p-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventos.map((ev) => {
+                    const Icon = ICONS[ev.tipo] ?? Search;
+                    const metadata = ev.metadata as Record<string, unknown> | undefined;
+                    return (
+                      <tr key={ev.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                        <td className="p-3">
+                          <span className="inline-flex items-center gap-1.5 font-bold text-midnight">
+                            <Icon className="w-3.5 h-3.5 text-gray-400" />
+                            {LABELS[ev.tipo] ?? ev.tipo}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-500 text-xs">
+                          {ev.tipo === "busqueda" && `"${String(metadata?.query ?? "")}" → ${String(metadata?.resultados ?? "")} resultados`}
+                          {ev.tipo === "agregar_lista" && String(metadata?.productoNombre ?? "")}
+                          {ev.tipo === "comparar" && `${String(metadata?.items ?? "")} items`}
+                          {ev.tipo === "reportar" && `prod:${String(metadata?.productoId ?? "").slice(0, 8)}...`}
+                          {ev.tipo === "contactar_whatsapp" && (
+                            <span className="text-emerald-600 font-bold">📱 {String(metadata?.proveedorNombre ?? "")}</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                          {new Date(ev.fecha).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {hasMore && (
+              <div className="p-4 text-center">
+                <button
+                  onClick={() => cargarEventos(offset)}
+                  disabled={cargandoEventos}
+                  className="text-xs font-bold text-blue-600 hover:underline disabled:opacity-50"
+                >
+                  {cargandoEventos ? "Cargando…" : "Ver más eventos"}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { MessageCircle } from "lucide-react";
 import { obtenerLista } from "@/lib/abastos-storage";
 import type { ItemListaStorage } from "@/lib/abastos-storage";
 
@@ -17,6 +18,7 @@ type DetalleProducto = {
 type TotalProveedor = {
   proveedorId: string;
   proveedorNombre: string;
+  telefono?: string | null;
   total: number;
   productos: DetalleProducto[];
 };
@@ -238,6 +240,44 @@ export default function ComparadorPage() {
           </table>
         </div>
       </div>
+
+      {resultado.totalesProveedores.some((p) => p.telefono) && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-sm font-bold text-midnight">Contacta a los proveedores</h3>
+          </div>
+          <div className="space-y-2">
+            {resultado.totalesProveedores
+              .filter((p) => p.telefono)
+              .map((p) => (
+                  <a
+                    key={p.proveedorId}
+                    href={`https://wa.me/${p.telefono}?text=${encodeURIComponent("Hola vi tus precios en factiram.com y me interesa comprar algunos productos")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      fetch("/api/abastos/track", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          tipo: "contactar_whatsapp",
+                          metadata: { proveedorId: p.proveedorId, proveedorNombre: p.proveedorNombre },
+                        }),
+                      }).catch(() => {});
+                    }}
+                    className="flex items-center justify-between w-full p-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200"
+                  >
+                  <span className="font-bold text-gray-800 text-sm">{p.proveedorNombre}</span>
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </span>
+                </a>
+              ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-center gap-3">
         <button
