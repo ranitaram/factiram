@@ -48,6 +48,15 @@ export default function BuscarPage() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("q");
+    if (query) {
+      setQ(query);
+      buscar(query);
+    }
+  }, []);
+
+  useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => buscar(q), 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -211,6 +220,17 @@ export default function BuscarPage() {
               <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent" />
             )}
           </div>
+
+          {agregado.size > 0 && (
+            <div className="p-3 border-t border-gray-100 text-center">
+              <button
+                onClick={() => router.push("/panel/abastos/lista")}
+                className="w-full max-w-xs py-3 rounded-xl font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors text-sm shadow-sm"
+              >
+                Ver mi lista ({agregado.size} producto{agregado.size !== 1 ? "s" : ""})
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

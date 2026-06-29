@@ -122,6 +122,15 @@ export default function ListaPage() {
             </tbody>
           </table>
         </div>
+
+        <div className="p-3 border-t border-gray-100 text-center">
+          <button
+            onClick={irAComparar}
+            className="w-full max-w-xs py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm shadow-sm"
+          >
+            Comparar precios →
+          </button>
+        </div>
       </div>
     </div>
   );

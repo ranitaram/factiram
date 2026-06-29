@@ -188,7 +188,7 @@ export default function AbastosSearchPreview() {
         {mostroResultados && (
           <div className="text-center mt-6 pt-4 border-t border-gray-100">
             <Link
-              href="/panel/abastos/buscar"
+              href={`/panel/abastos/buscar?q=${encodeURIComponent(q)}`}
               className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
             >
               Ver todos los precios <ArrowRight className="w-4 h-4" />
