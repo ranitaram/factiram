@@ -13,6 +13,7 @@ type PrecioProveedor = {
 
 type ResultadoBusqueda = {
   productoId: string;
+  slug: string;
   productoNombre: string;
   unidad: string;
   precios: PrecioProveedor[];
@@ -156,7 +157,9 @@ export default function AbastosSearchPreview() {
                     {resultados.map((r) => (
                       <tr key={r.productoId} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                         <td className="py-3 pr-4 font-bold text-midnight whitespace-nowrap">
-                          {r.productoNombre}
+                          <Link href={`/precios/${r.slug}`} className="hover:text-emerald-700 transition-colors">
+                            {r.productoNombre}
+                          </Link>
                           <span className="font-normal text-gray-400 ml-1">/{r.unidad}</span>
                         </td>
                         {proveedores.map((nom) => {

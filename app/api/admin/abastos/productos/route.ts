@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isAdmin } from "@/lib/factiram-session";
+import { slugify } from "@/lib/slugify";
+
+async function generarSlugUnico(nombre: string): Promise<string> {
+  let slug = slugify(nombre);
+  let counter = 1;
+  while (await prisma.abastosProducto.findUnique({ where: { slug } })) {
+    slug = `${slugify(nombre)}-${counter}`;
+    counter++;
+  }
+  return slug;
+}
 
 export async function GET(req: Request) {
   if (!(await isAdmin())) {
@@ -63,8 +74,10 @@ export async function POST(req: Request) {
 
     if (proveedorId && precio && typeof precio === "number" && precio > 0) {
       const result = await prisma.$transaction(async (tx) => {
+        const slug = await generarSlugUnico(nombre.trim());
         const prod = await tx.abastosProducto.create({
           data: {
+            slug,
             nombre: nombre.trim(),
             unidad: productoUnidad,
             categoria: categoria || "Basicos",
@@ -84,8 +97,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ producto: result });
     }
 
+    const slug = await generarSlugUnico(nombre.trim());
     const producto = await prisma.abastosProducto.create({
       data: {
+        slug,
         nombre: nombre.trim(),
         unidad: productoUnidad,
         categoria: categoria || "Basicos",

@@ -403,6 +403,7 @@ model EfectivoCaja {
 
 model AbastosProducto {
   id        String   @id @default(cuid())
+  slug      String   @unique
   nombre    String   @unique
   unidad    String   @default("kg")
   categoria String   @default("Basicos")
@@ -414,6 +415,7 @@ model AbastosProducto {
 
   @@index([activo])
   @@index([nombre])
+  @@index([slug])
 }
 
 model AbastosProveedor {

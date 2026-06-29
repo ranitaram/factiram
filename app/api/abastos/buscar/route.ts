@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     const productos = await prisma.abastosProducto.findMany({
       where,
-      select: { id: true, nombre: true, unidad: true, categoria: true },
+      select: { id: true, slug: true, nombre: true, unidad: true, categoria: true },
       orderBy: { nombre: "asc" },
       take: MAX_RESULTADOS,
     });
@@ -30,6 +30,7 @@ export async function GET(req: Request) {
 
     const resultados = productos.map((prod) => ({
       productoId: prod.id,
+      slug: prod.slug,
       productoNombre: prod.nombre,
       unidad: prod.unidad,
       categoria: prod.categoria,

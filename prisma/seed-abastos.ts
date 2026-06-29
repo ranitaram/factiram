@@ -38,6 +38,25 @@ const PRODUCTOS = [
   { nombre: "Papel de cocina", unidad: "pieza", categoria: "Varios" },
 ];
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function uniqueSlug(text: string): Promise<string> {
+  let slug = slugify(text);
+  let counter = 1;
+  while (await prisma.abastosProducto.findUnique({ where: { slug } })) {
+    slug = `${slugify(text)}-${counter}`;
+    counter++;
+  }
+  return slug;
+}
+
 async function main() {
   console.log("🌱 Sembrando Abastos...");
 
@@ -51,16 +70,18 @@ async function main() {
   console.log(`  ✓ Proveedor: ${proveedor.nombre}`);
 
   for (const p of PRODUCTOS) {
+    const slug = await uniqueSlug(p.nombre);
     await prisma.abastosProducto.upsert({
       where: { nombre: p.nombre },
       update: {},
       create: {
+        slug,
         nombre: p.nombre,
         unidad: p.unidad,
         categoria: p.categoria,
       },
     });
-    console.log(`  ✓ Producto: ${p.nombre} (${p.unidad})`);
+    console.log(`  ✓ Producto: ${p.nombre} → ${slug} (${p.unidad})`);
   }
 
   console.log("✅ Abastos listo. Los precios quedan vacios para que los llenes desde el admin.");

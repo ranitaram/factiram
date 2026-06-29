@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { agregarALista, type ItemListaStorage } from "@/lib/abastos-storage";
 import { useRouter } from "next/navigation";
 
@@ -14,6 +15,7 @@ type PrecioProveedor = {
 
 type ResultadoBusqueda = {
   productoId: string;
+  slug: string;
   productoNombre: string;
   unidad: string;
   categoria: string;
@@ -177,7 +179,9 @@ export default function BuscarPage() {
                   {resultados.map((r) => (
                     <tr key={r.productoId} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                       <td className="p-3 font-bold text-midnight whitespace-nowrap">
-                        {r.productoNombre}
+                        <Link href={`/precios/${r.slug}`} className="hover:text-emerald-700 transition-colors">
+                          {r.productoNombre}
+                        </Link>
                         <span className="font-normal text-gray-400 ml-1">/ {r.unidad}</span>
                       </td>
                       {proveedores.map((nom) => {
