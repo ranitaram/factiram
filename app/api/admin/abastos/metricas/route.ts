@@ -9,7 +9,7 @@ export async function GET() {
     const inicioSemana = new Date(inicioHoy.getTime() - 7 * 24 * 60 * 60 * 1000);
     const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
 
-    const [eventosHoy, eventosSemana, totalProductos, preciosVerificados, ultimosPrecios, desactualizados, whatsappEventos] =
+    const [eventosHoy, eventosSemana, totalProductos, preciosVerificados, ultimosPrecios, desactualizados, whatsappEventos, ultimosEventos] =
       await Promise.all([
         prisma.abastosEvento.groupBy({
           by: ["tipo"],
@@ -37,6 +37,11 @@ export async function GET() {
         prisma.abastosEvento.findMany({
           where: { tipo: "contactar_whatsapp" },
           select: { metadata: true, createdAt: true },
+        }),
+        prisma.abastosEvento.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          select: { id: true, tipo: true, metadata: true, createdAt: true },
         }),
       ]);
 
@@ -94,6 +99,12 @@ export async function GET() {
       productosSinPrecio: productosSinPrecio.map((p) => p.nombre),
       productosDesactualizados: desactualizados,
       whatsappPorProveedor,
+      ultimosEventos: ultimosEventos.map((e) => ({
+        id: e.id,
+        tipo: e.tipo,
+        metadata: e.metadata,
+        fecha: e.createdAt.toISOString(),
+      })),
       umbralDias: 14,
     });
   } catch {

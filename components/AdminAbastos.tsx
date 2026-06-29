@@ -1051,7 +1051,7 @@ function SeccionMetricas() {
     } catch {
       // silent
     } finally {
-      setCargando(false);
+      setCargandoEventos(false);
     }
   }, []);
 
@@ -1062,17 +1062,21 @@ function SeccionMetricas() {
         if (!r.ok) throw new Error("Error al cargar métricas");
         const json = await r.json();
         setData(json);
+        if (Array.isArray(json.ultimosEventos)) {
+          setEventos(json.ultimosEventos);
+          setOffset(json.ultimosEventos.length);
+          setHasMore(json.ultimosEventos.length === 15);
+        }
       })
       .catch((e) => {
         if (e.name !== "AbortError") setError(e.message);
       })
-      .finally(() => setCargando(false));
+      .finally(() => {
+        setCargando(false);
+        setCargandoEventos(false);
+      });
     return () => ctl.abort();
   }, []);
-
-  useEffect(() => {
-    cargarEventos(0);
-  }, [cargarEventos]);
 
   if (cargando) {
     return (
