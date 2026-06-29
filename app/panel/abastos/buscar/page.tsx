@@ -115,6 +115,9 @@ export default function BuscarPage() {
   return (
     <div>
       <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
+        <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
+          Los precios mostrados se recopilan de información pública y pueden cambiar sin previo aviso. FACTIRAM procura mantener esta información actualizada periódicamente; sin embargo, los precios finales siempre serán los establecidos por cada proveedor al momento de la compra.
+        </p>
         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
           Buscar insumo
         </label>

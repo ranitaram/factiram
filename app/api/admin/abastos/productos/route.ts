@@ -3,11 +3,38 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isAdmin } from "@/lib/factiram-session";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {
+    const { searchParams } = new URL(req.url);
+    const page = searchParams.get("page");
+    const limit = searchParams.get("limit");
+
+    if (page && limit) {
+      const pagina = parseInt(page, 10);
+      const limite = Math.min(parseInt(limit, 10), 50);
+      const skip = (pagina - 1) * limite;
+      if (pagina < 1 || skip < 0) {
+        return NextResponse.json({ error: "Página inválida" }, { status: 400 });
+      }
+      const [productos, total] = await Promise.all([
+        prisma.abastosProducto.findMany({
+          orderBy: { nombre: "asc" },
+          skip,
+          take: limite,
+        }),
+        prisma.abastosProducto.count(),
+      ]);
+      return NextResponse.json({
+        productos,
+        total,
+        pagina,
+        totalPaginas: Math.ceil(total / limite),
+      });
+    }
+
     const productos = await prisma.abastosProducto.findMany({
       orderBy: [{ categoria: "asc" }, { nombre: "asc" }],
     });

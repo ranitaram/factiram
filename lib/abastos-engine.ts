@@ -124,8 +124,13 @@ export function calcularComparacion(
     });
   }
 
+  const COBERTURA_MINIMA = 0.75;
+  const minimoProductos = Math.ceil(listaConPrecio.length * COBERTURA_MINIMA);
+
   const mejorProveedorUnico = totalesProveedores.length
-    ? totalesProveedores.reduce((a, b) => (a.total < b.total ? a : b))
+    ? totalesProveedores
+        .filter((p) => p.productos.length >= minimoProductos)
+        .sort((a, b) => a.total - b.total)[0] ?? null
     : null;
 
   const itemsRutaOptima: ItemRutaOptima[] = [];

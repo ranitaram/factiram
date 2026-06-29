@@ -133,7 +133,7 @@ export default function ComparadorPage() {
 
   return (
     <div className="space-y-6">
-      {resultado.mejorProveedorUnico && (
+      {resultado.mejorProveedorUnico ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -154,6 +154,15 @@ export default function ComparadorPage() {
               </div>
             )}
           </div>
+        </div>
+      ) : resultado.totalesProveedores.length > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+            Mejor proveedor único
+          </p>
+          <p className="text-sm text-gray-600">
+            Ningún proveedor tiene suficientes productos de tu lista. Usa la <strong>ruta óptima</strong> para comprar cada producto donde esté más barato.
+          </p>
         </div>
       )}
 
