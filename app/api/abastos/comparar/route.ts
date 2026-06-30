@@ -4,7 +4,7 @@ import { calcularComparacion, type ItemLista } from "@/lib/abastos-engine";
 import { getPreciosActualesFlat } from "@/lib/abastos-queries";
 import { trackEvent } from "@/lib/abastos-track";
 
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 50;
 
 export async function POST(req: Request) {
   let body: { lista?: ItemLista[] };
