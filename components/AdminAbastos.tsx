@@ -1006,6 +1006,8 @@ type MetricasData = {
   cobertura: { porcentaje: number; productosConPrecio: number; totalProductos: number };
   productosSinPrecio: string[];
   productosDesactualizados: ProductoDesactualizado[];
+  visitantes: { hoy: number; semana: number; mes: number };
+  sesiones: { hoy: number; semana: number; mes: number };
   whatsappPorProveedor: { proveedorNombre: string; hoy: number; semana: number; mes: number }[];
   umbralDias: number;
 };
@@ -1134,6 +1136,26 @@ function SeccionMetricas() {
           <p className="text-3xl font-black text-midnight">{data.hoy.total}</p>
           <p className="text-xs text-gray-400 mt-1">
             {data.semana.total} en la última semana
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Visitantes únicos
+          </p>
+          <p className="text-3xl font-black text-midnight">{data.visitantes.hoy}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {data.visitantes.semana} en la última semana
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            Sesiones
+          </p>
+          <p className="text-3xl font-black text-midnight">{data.sesiones.hoy}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {data.sesiones.semana} en la última semana
           </p>
         </div>
       </div>

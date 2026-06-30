@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle } from "lucide-react";
+import { getVisitorId, getSessionId } from "@/lib/abastos-visitor";
 import { obtenerLista } from "@/lib/abastos-storage";
 import type { ItemListaStorage } from "@/lib/abastos-storage";
 
@@ -272,6 +273,8 @@ export default function ComparadorPage() {
                         body: JSON.stringify({
                           tipo: "contactar_whatsapp",
                           metadata: { proveedorId: p.proveedorId, proveedorNombre: p.proveedorNombre },
+                          visitorId: getVisitorId(),
+                          sessionId: getSessionId(),
                         }),
                       }).catch(() => {});
                     }}

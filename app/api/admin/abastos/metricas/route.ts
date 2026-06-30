@@ -9,7 +9,7 @@ export async function GET() {
     const inicioSemana = new Date(inicioHoy.getTime() - 7 * 24 * 60 * 60 * 1000);
     const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
 
-    const [eventosHoy, eventosSemana, totalProductos, preciosVerificados, ultimosPrecios, desactualizados, whatsappEventos, ultimosEventos] =
+    const [eventosHoy, eventosSemana, totalProductos, preciosVerificados, ultimosPrecios, desactualizados, whatsappEventos, ultimosEventos, visitantesHoy, visitantesSemana, visitantesMes, sesionesHoy, sesionesSemana, sesionesMes] =
       await Promise.all([
         prisma.abastosEvento.groupBy({
           by: ["tipo"],
@@ -42,6 +42,36 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
           take: 15,
           select: { id: true, tipo: true, metadata: true, createdAt: true },
+        }),
+        prisma.abastosEvento.groupBy({
+          by: ["visitorId"],
+          where: { createdAt: { gte: inicioHoy }, visitorId: { not: null } },
+          _count: { visitorId: true },
+        }),
+        prisma.abastosEvento.groupBy({
+          by: ["visitorId"],
+          where: { createdAt: { gte: inicioSemana }, visitorId: { not: null } },
+          _count: { visitorId: true },
+        }),
+        prisma.abastosEvento.groupBy({
+          by: ["visitorId"],
+          where: { createdAt: { gte: inicioMes }, visitorId: { not: null } },
+          _count: { visitorId: true },
+        }),
+        prisma.abastosEvento.groupBy({
+          by: ["sessionId"],
+          where: { createdAt: { gte: inicioHoy }, sessionId: { not: null } },
+          _count: { sessionId: true },
+        }),
+        prisma.abastosEvento.groupBy({
+          by: ["sessionId"],
+          where: { createdAt: { gte: inicioSemana }, sessionId: { not: null } },
+          _count: { sessionId: true },
+        }),
+        prisma.abastosEvento.groupBy({
+          by: ["sessionId"],
+          where: { createdAt: { gte: inicioMes }, sessionId: { not: null } },
+          _count: { sessionId: true },
         }),
       ]);
 
@@ -98,6 +128,16 @@ export async function GET() {
       },
       productosSinPrecio: productosSinPrecio.map((p) => p.nombre),
       productosDesactualizados: desactualizados,
+      visitantes: {
+        hoy: visitantesHoy.length,
+        semana: visitantesSemana.length,
+        mes: visitantesMes.length,
+      },
+      sesiones: {
+        hoy: sesionesHoy.length,
+        semana: sesionesSemana.length,
+        mes: sesionesMes.length,
+      },
       whatsappPorProveedor,
       ultimosEventos: ultimosEventos.map((e) => ({
         id: e.id,

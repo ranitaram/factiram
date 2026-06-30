@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { agregarALista, type ItemListaStorage } from "@/lib/abastos-storage";
 import { useRouter } from "next/navigation";
+import { getVisitorId, getSessionId } from "@/lib/abastos-visitor";
 
 type PrecioProveedor = {
   proveedorId: string;
@@ -72,7 +73,12 @@ export default function BuscarPage() {
         fetch("/api/abastos/track", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tipo: "busqueda", metadata: { query: q, resultados: resultados.length } }),
+          body: JSON.stringify({
+            tipo: "busqueda",
+            metadata: { query: q, resultados: resultados.length },
+            visitorId: getVisitorId(),
+            sessionId: getSessionId(),
+          }),
         }).catch(() => {});
       }, 1000);
     }
@@ -91,7 +97,12 @@ export default function BuscarPage() {
     fetch("/api/abastos/track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tipo: "agregar_lista", metadata: { productoId: r.productoId, productoNombre: r.productoNombre } }),
+      body: JSON.stringify({
+        tipo: "agregar_lista",
+        metadata: { productoId: r.productoId, productoNombre: r.productoNombre },
+        visitorId: getVisitorId(),
+        sessionId: getSessionId(),
+      }),
     });
   }
 

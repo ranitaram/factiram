@@ -460,7 +460,11 @@ model AbastosEvento {
   id        String   @id @default(cuid())
   tipo      String
   metadata  Json?    @default("{}")
+  visitorId String?
+  sessionId String?
   createdAt DateTime @default(now())
 
   @@index([tipo, createdAt])
+  @@index([visitorId])
+  @@index([sessionId])
 }

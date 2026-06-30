@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Search, ArrowRight, Store } from "lucide-react";
+import { getVisitorId, getSessionId } from "@/lib/abastos-visitor";
 
 type PrecioProveedor = {
   proveedorId: string;
@@ -61,7 +62,12 @@ export default function AbastosSearchPreview() {
         fetch("/api/abastos/track", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tipo: "busqueda", metadata: { query: q, resultados: resultados.length } }),
+          body: JSON.stringify({
+            tipo: "busqueda",
+            metadata: { query: q, resultados: resultados.length },
+            visitorId: getVisitorId(),
+            sessionId: getSessionId(),
+          }),
         }).catch(() => {});
       }, 1000);
     }
