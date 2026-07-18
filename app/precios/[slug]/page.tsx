@@ -43,6 +43,7 @@ export const revalidate = 3600;
 type PrecioConProveedor = {
   proveedorId: string;
   proveedorNombre: string;
+  telefono: string | null;
   precio: number;
   unidad: string;
   actualizado: Date;
@@ -63,7 +64,7 @@ async function obtenerPrecios(productoId: string): Promise<{
       precio: true,
       unidad: true,
       createdAt: true,
-      proveedor: { select: { nombre: true } },
+      proveedor: { select: { nombre: true, telefono: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -79,6 +80,7 @@ async function obtenerPrecios(productoId: string): Promise<{
     precios.push({
       proveedorId: r.proveedorId,
       proveedorNombre: r.proveedor.nombre,
+      telefono: r.proveedor.telefono,
       precio: Number(r.precio),
       unidad: r.unidad,
       actualizado: r.createdAt,
@@ -160,10 +162,19 @@ export default async function PrecioProductoPage({ params }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {precios.map((p, i) => (
-                  <tr key={p.proveedorId} className={`border-b border-gray-50 ${i === 0 ? "bg-emerald-50/50" : ""}`}>
+                {precios.map((p, i) => {
+                  const waHref = p.telefono
+                    ? `https://wa.me/${p.telefono.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hola, vi el precio del ${producto.nombre} en factiram.com y me interesa comprar este producto`)}`
+                    : null;
+                  return (<tr key={p.proveedorId} className={`border-b border-gray-50 ${i === 0 ? "bg-emerald-50/50" : ""}`}>
                     <td className="p-3 font-bold text-midnight">
-                      {p.proveedorNombre}
+                      {waHref ? (
+                        <a href={waHref} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 transition-colors">
+                          {p.proveedorNombre}
+                        </a>
+                      ) : (
+                        p.proveedorNombre
+                      )}
                       {i === 0 && (
                         <span className="ml-2 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                           Más barato
@@ -171,7 +182,13 @@ export default async function PrecioProductoPage({ params }: Props) {
                       )}
                     </td>
                     <td className="p-3 text-right font-black text-lg text-midnight">
-                      ${p.precio.toFixed(2)}
+                      {waHref ? (
+                        <a href={waHref} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 transition-colors">
+                          ${p.precio.toFixed(2)}
+                        </a>
+                      ) : (
+                        <>${p.precio.toFixed(2)}</>
+                      )}
                     </td>
                     <td className="p-3 text-right text-gray-400 text-xs font-bold">
                       / {p.unidad}
@@ -179,8 +196,8 @@ export default async function PrecioProductoPage({ params }: Props) {
                     <td className="p-3 text-right text-gray-400 text-[10px] whitespace-nowrap">
                       {formatearFecha(p.actualizado)}
                     </td>
-                  </tr>
-                ))}
+                  </tr>);
+                })}
               </tbody>
             </table>
           </div>
