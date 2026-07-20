@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import SessionWrapper from "@/components/SessionWrapper";
 import CookieBanner from "@/components/CookieBanner";
+import FacebookPixel from "@/components/FacebookPixel";
 import Navbar from "@/components/Navbar"; // Importamos el nuevo componente responsivo
 import { auth } from "@/lib/auth";
 import { Analytics } from "@vercel/analytics/react";
@@ -45,6 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <CookieBanner />
           <Analytics />
           <WhatsAppButton />
+          <FacebookPixel />
         </SessionWrapper>
       </body>
     </html>
