@@ -68,7 +68,7 @@ export default function PlanesPage() {
           </h2>
           
           <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-2xl mx-auto">
-            Te recomendamos iniciar con nuestra <strong>Auditoría Gratuita</strong>. En menos de 3 minutos obtendrás tu Score FACTIRAM y sabrás con precisión qué nivel de intervención requiere tu empresa.
+            Te recomendamos iniciar con nuestro <strong>Diagnóstico Gratuito</strong>. En menos de 3 minutos obtendrás tu Score FACTIRAM y sabrás con precisión qué nivel de intervención requiere tu empresa.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">
@@ -76,7 +76,7 @@ export default function PlanesPage() {
               href="/audit" 
               className="bg-midnight text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl shadow-midnight/20"
             >
-              Iniciar Auditoría Gratis <ArrowRight className="w-4 h-4 text-emerald-pro" />
+              Iniciar Diagnóstico Gratis <ArrowRight className="w-4 h-4 text-emerald-pro" />
             </Link>
             
             <a

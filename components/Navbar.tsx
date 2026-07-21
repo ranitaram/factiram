@@ -14,7 +14,7 @@ export default function Navbar({ session }: { session: any }) {
     { name: "Precios", href: "/precios" },
     { name: "Abastos", href: "/panel/abastos/buscar" },
     { name: "Planes", href: "/planes" },
-    { name: "Auditoría", href: "/audit" },
+    { name: "Diagnóstico", href: "/audit" },
   ];
 
   return (
@@ -106,7 +106,7 @@ export default function Navbar({ session }: { session: any }) {
                   onClick={() => setIsOpen(false)}
                   className="w-full py-5 rounded-2xl bg-midnight text-white text-center font-black uppercase tracking-widest text-sm shadow-xl"
                 >
-                  Empezar Auditoría
+                  Empezar Diagnóstico
                 </Link>
               )}
             </div>

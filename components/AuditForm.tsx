@@ -305,7 +305,7 @@ export default function AuditForm() {
               </button>
             )}
             <button onClick={resetAudit} className="bg-emerald-700 text-white px-8 py-5 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md">
-              <RefreshCcw className="w-4 h-4" /> Nueva Auditoría
+              <RefreshCcw className="w-4 h-4" /> Nuevo Diagnóstico
             </button>
           </div>
         </div>

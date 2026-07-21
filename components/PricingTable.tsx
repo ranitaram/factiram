@@ -31,7 +31,7 @@ export default function PricingTable() {
       description: "Orden estructural y disciplina financiera permanente.",
       features: [
         "Todo lo del plan Emergencia",
-        "Auditoría de Costos y Mermas",
+        "Diagnóstico de Costos y Mermas",
         "Optimización de Cartera de Clientes",
         "Manuales de Delegación Financiera",
         "Proyección de Caja a 6 Meses",

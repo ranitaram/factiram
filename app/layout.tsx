@@ -12,7 +12,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FACTIRAM | Auditoría Estratégica",
+  title: "FACTIRAM | Diagnóstico Estratégico",
   description: "Diagnóstico profesional para optimizar la rentabilidad de tu negocio.",
 };
 
@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <footer className="bg-slate-100 border-t border-slate-200 py-10 mt-auto">
             <div className="max-w-6xl mx-auto px-6 text-center flex flex-col gap-4">
               <p className="text-slate-soft text-sm font-medium">
-                © 2026 FACTIRAM. Auditoría de Negocios de Alto Nivel.
+                © 2026 FACTIRAM. Diagnóstico de Negocios de Alto Nivel.
               </p>
               <div className="flex justify-center gap-6 text-xs text-slate-400 font-bold uppercase tracking-wider">
                 <a href="/privacidad" className="hover:text-emerald-600 transition-colors">Aviso de Privacidad</a>

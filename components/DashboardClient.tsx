@@ -88,9 +88,9 @@ export default function DashboardClient({ audits: initialAudits, userName }: { a
   if (audits.length === 0) {
     return (
       <div className="bg-white p-12 rounded-[3rem] border border-slate-100 shadow-sm text-center max-w-2xl mx-auto">
-        <p className="text-slate-400 mb-8 text-xl font-medium italic">Tu historial de auditorías está vacío.</p>
+        <p className="text-slate-400 mb-8 text-xl font-medium italic">Tu historial de diagnósticos está vacío.</p>
         <a href="/audit" className="bg-emerald-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-emerald-200 inline-block">
-          Nueva Auditoría
+          Nuevo Diagnóstico
         </a>
       </div>
     );
@@ -108,7 +108,7 @@ export default function DashboardClient({ audits: initialAudits, userName }: { a
             onClick={() => handleDelete(audit.id)}
             disabled={isDeleting === audit.id}
             className="absolute top-6 right-6 w-12 h-12 bg-white shadow-lg border border-slate-100 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:scale-110 active:scale-90 transition-all z-20"
-            title="Eliminar Auditoría"
+            title="Eliminar Diagnóstico"
           >
             {isDeleting === audit.id ? (
               <Loader2 className="w-5 h-5 animate-spin" />

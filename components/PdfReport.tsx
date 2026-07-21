@@ -60,7 +60,7 @@ export const PdfReport = ({ formData, result, userName, messages }: any) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.logoText}>FACTI<Text style={styles.logoAccent}>RAM</Text></Text>
-            <Text style={{ fontSize: 9, color: '#94a3b8' }}>Auditoría Estratégica</Text>
+            <Text style={{ fontSize: 9, color: '#94a3b8' }}>Diagnóstico Estratégico</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={{ fontSize: 10, fontWeight: 'bold' }}>{userName}</Text>
