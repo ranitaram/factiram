@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { ArrowRight, Clock, Store } from "lucide-react";
+import CtaGanancias from "@/components/CtaGanancias";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -226,6 +227,10 @@ export default async function PrecioProductoPage({ params }: Props) {
         >
           Comparar todos los productos <ArrowRight className="w-4 h-4" />
         </Link>
+      </div>
+
+      <div className="mt-8">
+        <CtaGanancias productoNombre={producto.nombre} />
       </div>
     </div>
   );
