@@ -12,7 +12,8 @@ export default function Navbar({ session }: { session: any }) {
     { name: "Método", href: "/#como-funciona" },
     { name: "La Guía", href: "/guia", highlight: true },
     { name: "Precios", href: "/precios" },
-    { name: "Abastos", href: "/panel/abastos/buscar" },
+    { name: "Sitios Web", href: "/sitios-web" },
+    { name: "Buscador", href: "/panel/abastos/buscar" },
     { name: "Planes", href: "/planes" },
     { name: "Diagnóstico", href: "/audit" },
   ];
